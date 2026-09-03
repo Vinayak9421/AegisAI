@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=65.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aegis-ai-backend"
+version = "0.1.0"
+description = "Provenance-aware trust and safety red-teaming platform for authorized fintech LLM applications"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.7.0",
+    "sqlalchemy>=2.0.35",
+    "alembic>=1.14.0",
+    "psycopg2-binary>=2.9.10",
+    "cryptography>=44.0.0",
+    "passlib[bcrypt]>=1.7.4",
+    "bcrypt>=4.0.1",
+    "httpx>=0.28.0",
+]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+]
