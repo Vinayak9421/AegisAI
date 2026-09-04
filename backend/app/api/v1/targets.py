@@ -30,10 +30,24 @@ def get_or_create_default_principal(db: Session, tenant_id: Optional[uuid.UUID] 
         tenant = db.get(Tenant, tenant_id)
         if tenant:
             user = tenant.users[0] if tenant.users else None
-            if user:
-                return tenant.id, user.id
+            if not user:
+                user = User(id=uuid.uuid4(), tenant_id=tenant.id, email=f"admin-{tenant.id.hex[:6]}@aegis.local")
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+            return tenant.id, user.id
+        else:
+            # Explicit tenant_id was provided: create that tenant and principal to ensure true tenant isolation
+            tenant = Tenant(id=tenant_id, name=f"Isolated Tenant-{tenant_id.hex[:6]}")
+            db.add(tenant)
+            db.flush()
+            user = User(id=uuid.uuid4(), tenant_id=tenant.id, email=f"admin-{tenant.id.hex[:6]}@aegis.local")
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            return tenant.id, user.id
     
-    # Default fallback for testing / local execution
+    # Default fallback for testing / local execution without explicit X-Tenant-ID header
     first_tenant = db.query(Tenant).first()
     if not first_tenant:
         first_tenant = Tenant(id=uuid.uuid4(), name="Default Fintech Tenant")
@@ -52,6 +66,7 @@ def get_or_create_default_principal(db: Session, tenant_id: Optional[uuid.UUID] 
         db.refresh(first_user)
 
     return first_tenant.id, first_user.id
+
 
 
 @router.post(
