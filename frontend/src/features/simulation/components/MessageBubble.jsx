@@ -46,14 +46,25 @@ export default function MessageBubble({ message, index }) {
           </div>
           <div
             className={clsx(
-              'message-in p-4 rounded-xl rounded-br-none text-body-md shadow-sm border',
+              'message-in p-4 rounded-xl rounded-br-none text-body-md shadow-xs border',
               response.variant === 'safe'
-                ? 'border-outline-variant'
-                : 'border-error-container bg-error-container/20'
+                ? 'border-slate-200 bg-slate-50 text-slate-800'
+                : 'border-rose-200 bg-rose-50/50 text-rose-900'
             )}
           >
             {response.text}
           </div>
+
+          {/* Independent Judge Analysis */}
+          {response.rationale && (
+            <div className="mt-1.5 flex items-start gap-1.5 p-2.5 rounded-lg bg-sky-50/70 border border-sky-200/70 text-[11px] text-slate-700 max-w-full shadow-2xs">
+              <span className="material-symbols-outlined text-[15px] text-[#0e61a1] shrink-0 mt-0.5">gavel</span>
+              <div>
+                <span className="font-bold text-[#0e61a1]">Judge Audit: </span>
+                <span>{response.rationale}</span>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </motion.div>

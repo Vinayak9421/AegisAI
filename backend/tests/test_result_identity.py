@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 import app.db.models as models
-from app.db.models.base import generate_logical_key
+from app.db.base_class import generate_logical_key
 from app.domain.enums import (
     AttemptPhase,
     AttemptStatus,

@@ -14,7 +14,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, JSONBType, UUIDType
-from app.db.models.base import TimestampMixin, UUIDPrimaryKeyMixin
+from app.db.base_class import TimestampMixin, UUIDPrimaryKeyMixin
 from app.domain.enums import CertificateStatus
 
 

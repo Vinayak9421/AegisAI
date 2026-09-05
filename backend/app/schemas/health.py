@@ -1,17 +1,5 @@
-"""Health check response schemas."""
+"""Backward compatibility facade re-exporting health schemas."""
 
-from typing import Optional
-from pydantic import BaseModel
-from app.domain.enums import AppEnvironment
+from app.modules.system.schemas import HealthLiveResponse, HealthReadyResponse
 
-
-class HealthLiveResponse(BaseModel):
-    status: str
-    environment: AppEnvironment
-    version: str = "0.1.0"
-
-
-class HealthReadyResponse(BaseModel):
-    status: str
-    database: str
-    environment: AppEnvironment
+__all__ = ["HealthLiveResponse", "HealthReadyResponse"]

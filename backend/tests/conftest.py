@@ -17,6 +17,10 @@ if backend_path not in sys.path:
 
 from app.api.deps import get_db
 from app.core.config import settings
+
+# Force offline / mock judge mode in test suite
+settings.JUDGE_API_KEY = "mock_test_key"
+
 from app.db.base import Base
 import app.db.models as models
 from app.domain.enums import (

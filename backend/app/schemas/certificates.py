@@ -20,8 +20,11 @@ class CertificateResponse(BaseModel):
     cmr: Optional[float] = None
     coverage_summary: Dict[str, Any]
     category_breakdown: Dict[str, Any]
+    pillars: Optional[Dict[str, Any]] = None
     failures: List[Dict[str, Any]]
     recommendations: List[str]
     limitations: List[str]
     formula_versions: Dict[str, Any]
+    trust_grade: Optional[str] = None
+    report_hash: Optional[str] = None
     created_at: datetime.datetime

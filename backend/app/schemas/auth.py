@@ -1,31 +1,19 @@
-"""Authentication and user session DTOs."""
+"""Backward compatibility facade re-exporting auth schemas from app.modules.auth.schemas."""
 
-import datetime
-import uuid
-from typing import Optional
-from pydantic import BaseModel, EmailStr
-from app.domain.enums import UserRole, UserStatus
+from app.modules.auth.schemas import (
+    LoginRequest,
+    RegisterRequest,
+    UserSummary,
+    TokenResponse,
+    LoginResponse,
+    UserResponse,
+)
 
-
-class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
-
-
-class LoginResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    expires_in_seconds: int
-    user_id: uuid.UUID
-    tenant_id: uuid.UUID
-    role: UserRole
-
-
-class UserResponse(BaseModel):
-    id: uuid.UUID
-    tenant_id: uuid.UUID
-    email: str
-    role: UserRole
-    status: UserStatus
-    last_login_at: Optional[datetime.datetime] = None
-    created_at: datetime.datetime
+__all__ = [
+    "LoginRequest",
+    "RegisterRequest",
+    "UserSummary",
+    "TokenResponse",
+    "LoginResponse",
+    "UserResponse",
+]

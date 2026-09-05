@@ -3,15 +3,15 @@ import StatusBadge from './StatusBadge';
 
 const rowVariants = {
   hidden: { opacity: 0, y: 8 },
-  visible: (i) => ({ opacity: 1, y: 0, transition: { delay: i * 0.07, duration: 0.3 } }),
+  visible: (i) => ({ opacity: 1, y: 0, transition: { delay: i * 0.05, duration: 0.25 } }),
 };
 
 function TrustScoreBar({ score }) {
-  const color = score >= 90 ? '#10B981' : score >= 75 ? '#F59E0B' : '#ba1a1a';
+  const color = score >= 90 ? '#10B981' : score >= 75 ? '#F59E0B' : '#ef4444';
   return (
-    <div className="flex items-center gap-2">
-      <span className={`font-medium ${score < 75 ? 'text-error' : 'text-on-surface'}`}>{score}</span>
-      <div className="w-16 h-1.5 bg-surface-variant rounded-full overflow-hidden">
+    <div className="flex items-center gap-2.5">
+      <span className={`text-xs font-bold ${score < 75 ? 'text-rose-600' : 'text-slate-800'}`}>{score}%</span>
+      <div className="w-16 h-2 bg-slate-100 border border-slate-200 rounded-full overflow-hidden">
         <motion.div
           initial={{ width: 0 }}
           animate={{ width: `${score}%` }}
@@ -26,19 +26,20 @@ function TrustScoreBar({ score }) {
 
 export default function EvaluationTable({ evaluations }) {
   return (
-    <div className="bg-surface rounded-xl border border-surface-variant shadow-ice overflow-hidden">
+    <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden text-slate-800">
       {/* Table Header */}
-      <div className="p-6 border-b border-surface-variant flex justify-between items-center bg-surface-bright">
-        <h3 className="text-title-lg font-bold text-primary">Recent Evaluations</h3>
+      <div className="p-5 border-b border-slate-200 flex justify-between items-center bg-slate-50/60">
+        <h3 className="text-sm md:text-base font-bold text-slate-900 flex items-center gap-2">
+          <span className="material-symbols-outlined text-[#0e61a1]">shield</span>
+          Recent Threat Evaluations
+        </h3>
         <div className="flex gap-2">
-          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-            className="px-4 py-2 border border-outline-variant rounded-lg text-body-md text-on-surface-variant hover:bg-surface-container transition-colors flex items-center gap-2">
-            <span className="material-symbols-outlined text-[18px]">filter_list</span> Filter
-          </motion.button>
-          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-            className="px-4 py-2 border border-outline-variant rounded-lg text-body-md text-on-surface-variant hover:bg-surface-container transition-colors flex items-center gap-2">
-            <span className="material-symbols-outlined text-[18px]">download</span> Export
-          </motion.button>
+          <button className="px-3 py-1.5 border border-slate-200 bg-white rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center gap-1.5 shadow-2xs">
+            <span className="material-symbols-outlined text-[15px]">filter_list</span> Filter
+          </button>
+          <button className="px-3 py-1.5 border border-slate-200 bg-white rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors flex items-center gap-1.5 shadow-2xs">
+            <span className="material-symbols-outlined text-[15px]">download</span> Export
+          </button>
         </div>
       </div>
 
@@ -46,13 +47,13 @@ export default function EvaluationTable({ evaluations }) {
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-surface-container-low text-label-md text-on-surface-variant uppercase tracking-wider">
-              {['Client / Project', 'Model', 'Trust Score', 'Status', 'Last Run', 'Actions'].map((h, i) => (
-                <th key={h} className={`p-4 font-medium border-b border-surface-variant ${i === 5 ? 'text-right' : ''}`}>{h}</th>
+            <tr className="bg-slate-50 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              {['Client / Project', 'Model Target', 'Trust Score', 'Security Status', 'Last Audit', 'Actions'].map((h, i) => (
+                <th key={h} className={`p-4 border-b border-slate-200 ${i === 5 ? 'text-right' : ''}`}>{h}</th>
               ))}
             </tr>
           </thead>
-          <tbody className="text-body-md text-on-surface divide-y divide-surface-variant">
+          <tbody className="text-xs divide-y divide-slate-100">
             <AnimatePresence>
               {evaluations.map((row, i) => (
                 <motion.tr
@@ -61,20 +62,20 @@ export default function EvaluationTable({ evaluations }) {
                   variants={rowVariants}
                   initial="hidden"
                   animate="visible"
-                  className={`hover:bg-surface-container-lowest transition-colors ${row.status === 'critical' ? 'bg-error-container/10' : ''}`}
+                  className={`hover:bg-slate-50/80 transition-colors ${row.status === 'critical' ? 'bg-rose-50/30' : ''}`}
                 >
                   <td className="p-4">
-                    <div className="font-medium text-primary">{row.client}</div>
-                    <div className="text-label-md text-outline">{row.project}</div>
+                    <div className="font-bold text-slate-900">{row.client}</div>
+                    <div className="text-[11px] text-slate-500">{row.project}</div>
                   </td>
-                  <td className="p-4">{row.model}</td>
+                  <td className="p-4 text-slate-600 font-mono text-[11px]">{row.model}</td>
                   <td className="p-4"><TrustScoreBar score={row.trustScore} /></td>
                   <td className="p-4"><StatusBadge status={row.status} /></td>
-                  <td className="p-4 text-outline">{row.lastRun}</td>
+                  <td className="p-4 text-slate-500">{row.lastRun}</td>
                   <td className="p-4 text-right">
-                    <motion.button whileHover={{ scale: 1.1 }} className="p-1 text-on-surface-variant hover:text-primary transition-colors">
-                      <span className="material-symbols-outlined">more_vert</span>
-                    </motion.button>
+                    <button className="p-1 text-slate-400 hover:text-slate-700 transition-colors">
+                      <span className="material-symbols-outlined text-base">more_vert</span>
+                    </button>
                   </td>
                 </motion.tr>
               ))}
@@ -84,11 +85,20 @@ export default function EvaluationTable({ evaluations }) {
       </div>
 
       {/* Pagination */}
-      <div className="p-4 border-t border-surface-variant bg-surface-bright flex justify-between items-center text-label-md text-outline">
+      <div className="p-4 border-t border-slate-200 bg-slate-50/60 flex justify-between items-center text-xs text-slate-500">
         <span>Showing 1 to {evaluations.length} of 842 entries</span>
         <div className="flex gap-1">
           {['Prev', '1', '2', '3', 'Next'].map((p) => (
-            <button key={p} className={`px-2.5 py-1 border border-outline-variant rounded hover:bg-surface-container transition-colors ${p === '1' ? 'bg-primary text-on-primary border-primary' : ''}`}>{p}</button>
+            <button
+              key={p}
+              className={`px-2.5 py-1 border rounded-lg transition-colors text-xs font-semibold ${
+                p === '1' 
+                  ? 'bg-[#0e61a1] text-white border-[#0e61a1]' 
+                  : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              {p}
+            </button>
           ))}
         </div>
       </div>

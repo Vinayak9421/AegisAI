@@ -1,31 +1,33 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import AdminLayout from '../../../shared/components/AdminLayout';
 import TestSuiteCard from '../components/TestSuiteCard';
+import PromptExplorer from '../components/PromptExplorer';
+import benchmarkService from '../../../services/benchmarkService';
 import { mockBenchmarkPools } from '../../../store/mockData';
 
 const toggleItems = [
-  { id: 'single', label: 'Single-turn Evaluation', detail: 'Basic prompt-response testing.', defaultOn: true },
-  { id: 'multi', label: 'Multi-turn Conversation', detail: 'Context retention and drift analysis.', defaultOn: true },
-  { id: 'agentic', label: 'Agentic Simulation', detail: 'Complex tool-use and logic chains.', defaultOn: false },
+  { id: 'single', label: 'Single-turn Evaluation', detail: 'Target prompt-response security testing.', defaultOn: true },
+  { id: 'multi', label: 'Multi-turn Conversation', detail: 'Context retention and jailbreak drift.', defaultOn: true },
+  { id: 'agentic', label: 'Deterministic Seed (42)', detail: 'Reproducible stratified benchmark sampling.', defaultOn: true },
 ];
 
 function Toggle({ item }) {
   const [on, setOn] = useState(item.defaultOn);
   return (
-    <div className="flex items-center justify-between p-3 rounded-lg hover:bg-surface-container transition-colors">
+    <div className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors">
       <div>
-        <p className="text-body-md font-semibold text-on-background">{item.label}</p>
-        <p className="text-xs text-on-surface-variant mt-0.5">{item.detail}</p>
+        <p className="text-xs font-semibold text-slate-800">{item.label}</p>
+        <p className="text-[11px] text-slate-500 mt-0.5">{item.detail}</p>
       </div>
       <button
         onClick={() => setOn(!on)}
-        className={`relative w-11 h-6 rounded-full transition-colors duration-300 ${on ? 'bg-secondary' : 'bg-outline-variant'}`}
+        className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${on ? 'bg-[#0e61a1]' : 'bg-slate-300'}`}
       >
         <motion.span
-          animate={{ x: on ? 20 : 0 }}
+          animate={{ x: on ? 20 : 2 }}
           transition={{ duration: 0.2 }}
-          className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow"
+          className="absolute top-1 left-0.5 w-4 h-4 bg-white rounded-full shadow-xs"
         />
       </button>
     </div>
@@ -33,122 +35,188 @@ function Toggle({ item }) {
 }
 
 export default function TestSuitePage() {
+  const [sources, setSources] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('prompts'); // 'prompts' | 'datasets'
+
+  useEffect(() => {
+    async function loadSources() {
+      try {
+        const list = await benchmarkService.listSources();
+        setSources(list || []);
+      } catch {
+        // fallback
+      } finally {
+        setLoading(false);
+      }
+    }
+    loadSources();
+  }, []);
+
+  const totalPromptsCount = sources.reduce((acc, s) => acc + (s.total_prompts || 0), 0) || 6508;
+
+  const displayPools =
+    sources.length > 0
+      ? sources.map((s, i) => ({
+          id: s.id || i,
+          name: s.name,
+          badge: s.version || 'v1.0',
+          badgeVariant: s.source_type === 'EXTERNAL' ? 'standard' : 'ethics',
+          description: s.description || 'Pre-configured financial security & evasion attack suites.',
+          stats: [
+            { icon: 'format_list_numbered', text: `${s.total_prompts || 0} Prompts` },
+            { icon: 'shield', text: s.source_type || 'FINTECH' },
+            { icon: 'verified', text: 'Seeded in PostgreSQL', color: '#0e61a1' },
+          ],
+        }))
+      : mockBenchmarkPools;
+
   return (
-    <AdminLayout>
-      {/* Header */}
-      <header className="flex-shrink-0 p-8 pb-0">
+    <AdminLayout pageTitle="Benchmark Threat Catalog">
+      <div className="space-y-6">
+        {/* Header & Tabs */}
         <motion.div
           initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4"
+          className="flex flex-col md:flex-row md:items-end justify-between gap-4"
         >
           <div>
-            <h2 className="text-headline-lg font-bold text-primary tracking-tight">Benchmark Management</h2>
-            <p className="text-body-lg text-on-surface-variant mt-2">
-              Configure and manage test suites, judge models, and execution parameters.
+            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
+              Threat Benchmark Catalog & Prompts
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Ingested adversarial corpora categorized across 5 banking threat vectors and stored in PostgreSQL.
             </p>
           </div>
-          <div className="flex gap-3">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              className="px-4 py-2 rounded-lg border border-primary text-primary hover:bg-primary/5 transition-colors text-label-md font-medium flex items-center gap-2"
+
+          {/* View Mode Toggle */}
+          <div className="flex bg-slate-200/70 p-1 rounded-xl border border-slate-300/60 shadow-2xs">
+            <button
+              onClick={() => setActiveTab('prompts')}
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                activeTab === 'prompts'
+                  ? 'bg-white text-[#0e61a1] shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
             >
-              <span className="material-symbols-outlined text-[18px]">download</span> Export Config
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              className="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-container transition-colors text-label-md font-medium shadow-sm flex items-center gap-2"
+              <span className="material-symbols-outlined text-base">database</span>
+              <span>Database Prompts ({totalPromptsCount.toLocaleString()})</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('datasets')}
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                activeTab === 'datasets'
+                  ? 'bg-white text-[#0e61a1] shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
             >
-              <span className="material-symbols-outlined text-[18px]">save</span> Save Changes
-            </motion.button>
+              <span className="material-symbols-outlined text-base">library_books</span>
+              <span>Dataset Sources & Config</span>
+            </button>
           </div>
         </motion.div>
-      </header>
 
-      {/* Bento Grid */}
-      <div className="flex-1 overflow-y-auto p-8 pt-0">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-          {/* Left: Benchmark Pools */}
-          <div className="lg:col-span-8 flex flex-col gap-5">
-            <h3 className="text-title-lg font-bold text-on-background flex items-center gap-2">
-              <span className="material-symbols-outlined text-secondary">library_books</span>
-              Active Benchmark Pools
-            </h3>
-            {mockBenchmarkPools.map((pool, i) => (
-              <TestSuiteCard key={pool.id} pool={pool} index={i} />
-            ))}
-          </div>
+        {/* Tab 1: Live DB Prompt Explorer */}
+        {activeTab === 'prompts' && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <PromptExplorer />
+          </motion.div>
+        )}
 
-          {/* Right: Config Panel */}
-          <div className="lg:col-span-4 flex flex-col gap-5">
-            {/* Judge Configuration */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.2 }}
-              className="glass-card rounded-xl p-6"
-            >
-              <h3 className="text-title-lg font-bold text-on-background flex items-center gap-2 mb-6">
-                <span className="material-symbols-outlined text-secondary">gavel</span> Judge Configuration
-              </h3>
-              <div className="space-y-5">
-                <div>
-                  <label className="block text-label-md text-on-surface-variant mb-2">Primary Judge Model</label>
-                  <div className="relative">
-                    <select className="w-full bg-surface border border-outline-variant rounded-lg py-2.5 px-3 text-on-background focus:border-secondary focus:ring-1 focus:ring-secondary outline-none appearance-none text-body-md">
-                      <option>Llama-Guard-3-8B</option>
-                      <option>Groq-Mixtral-8x7b</option>
-                      <option>GPT-4-Turbo-Judge</option>
-                      <option>Custom Evaluation Endpoint</option>
-                    </select>
-                    <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none">expand_more</span>
+        {/* Tab 2: Datasets & Config View */}
+        {activeTab === 'datasets' && (
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3 }}
+            className="grid grid-cols-1 lg:grid-cols-12 gap-6"
+          >
+            {/* Left: Benchmark Pools */}
+            <div className="lg:col-span-8 flex flex-col gap-4">
+              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#0e61a1]">library_books</span>
+                Active Benchmark Datasets ({displayPools.length})
+              </h2>
+              {displayPools.map((pool, i) => (
+                <TestSuiteCard key={pool.id} pool={pool} index={i} />
+              ))}
+            </div>
+
+            {/* Right: Config Panel */}
+            <div className="lg:col-span-4 flex flex-col gap-6">
+              {/* Judge Configuration */}
+              <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
+                <h3 className="text-sm md:text-base font-bold text-slate-900 flex items-center gap-2 mb-4">
+                  <span className="material-symbols-outlined text-[#0e61a1]">gavel</span>
+                  Independent Judge Config
+                </h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Primary Judge Model
+                    </label>
+                    <div className="relative">
+                      <select className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 text-slate-800 text-xs font-medium focus:bg-white focus:border-[#0e61a1] outline-none appearance-none">
+                        <option>Groq / Llama Guard 3 8B (Adversarial Delimiters)</option>
+                        <option>Groq / Llama-3.3-70B-Versatile (Active)</option>
+                        <option>Rule-based Heuristic Judge (Offline Fallback)</option>
+                      </select>
+                      <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-lg">
+                        expand_more
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <label className="block text-label-md text-on-surface-variant mb-2">Fallback Judge</label>
-                  <div className="relative">
-                    <select className="w-full bg-surface border border-outline-variant rounded-lg py-2.5 px-3 text-on-background focus:border-secondary focus:ring-1 focus:ring-secondary outline-none appearance-none text-body-md">
-                      <option>Groq-Llama3-70B</option>
-                      <option>None (Fail Fast)</option>
-                    </select>
-                    <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none">expand_more</span>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
+                      Evaluation Sampling Mode
+                    </label>
+                    <div className="relative">
+                      <select className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 text-slate-800 text-xs font-medium focus:bg-white focus:border-[#0e61a1] outline-none appearance-none">
+                        <option>Quick Mode (~25 Stratified Prompts)</option>
+                        <option>Full Audit (150–200 Balanced Prompts)</option>
+                      </select>
+                      <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-lg">
+                        expand_more
+                      </span>
+                    </div>
                   </div>
-                </div>
-                <div className="pt-4 border-t border-outline-variant/30">
-                  <label className="block text-label-md text-on-surface-variant mb-3 flex justify-between">
-                    Global Rate Limit
-                    <span className="text-secondary font-bold">150 RPM</span>
-                  </label>
-                  <input type="range" min="10" max="500" defaultValue="150" className="w-full h-1 bg-outline-variant rounded-lg appearance-none cursor-pointer accent-secondary" />
-                  <div className="flex justify-between text-xs text-on-surface-variant mt-2">
-                    <span>10</span><span>500</span>
+
+                  <div className="pt-3 border-t border-slate-100">
+                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2 flex justify-between">
+                      <span>Target Rate Limit</span>
+                      <span className="text-[#0e61a1] font-bold">60 RPM</span>
+                    </label>
+                    <input
+                      type="range"
+                      min="10"
+                      max="300"
+                      defaultValue="60"
+                      className="w-full accent-[#0e61a1] cursor-pointer"
+                    />
                   </div>
                 </div>
               </div>
-            </motion.div>
 
-            {/* Execution Scope Toggles */}
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 }}
-              className="glass-card rounded-xl p-6 flex-1"
-            >
-              <h3 className="text-title-lg font-bold text-on-background flex items-center gap-2 mb-6">
-                <span className="material-symbols-outlined text-secondary">toggle_on</span> Execution Scope
-              </h3>
-              <div className="space-y-4">
-                {toggleItems.map((item) => <Toggle key={item.id} item={item} />)}
+              {/* Test Modalities */}
+              <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
+                <h3 className="text-sm md:text-base font-bold text-slate-900 flex items-center gap-2 mb-3">
+                  <span className="material-symbols-outlined text-[#0e61a1]">tune</span>
+                  Test Parameters
+                </h3>
+                <div className="space-y-1">
+                  {toggleItems.map((item) => (
+                    <Toggle key={item.id} item={item} />
+                  ))}
+                </div>
               </div>
-              <div className="mt-6 p-4 rounded-lg bg-tertiary-container/20 border border-tertiary-container/30 flex items-start gap-3">
-                <span className="material-symbols-outlined text-[#a1cedc] mt-0.5">info</span>
-                <p className="text-xs text-on-background leading-relaxed">
-                  Agentic simulations require dedicated compute nodes. Ensure rate limits are adjusted accordingly.
-                </p>
-              </div>
-            </motion.div>
-          </div>
-        </div>
+            </div>
+          </motion.div>
+        )}
       </div>
     </AdminLayout>
   );

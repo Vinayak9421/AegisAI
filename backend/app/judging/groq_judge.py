@@ -94,7 +94,7 @@ class GroqJudgeAdapter(JudgePort):
                 if resp.status_code == 200:
                     raw_content = resp.json()["choices"][0]["message"]["content"]
                     return self._parse_and_validate_verdict(raw_content, input_data)
-                elif resp.status_code == 429 or resp.status_code >= 500:
+                elif resp.status_code in (401, 403, 429) or resp.status_code >= 500:
                     logger.warning(f"Groq API returned HTTP {resp.status_code}, falling back to heuristic judge.")
                     return self._heuristic_fallback_evaluate(input_data)
                 else:

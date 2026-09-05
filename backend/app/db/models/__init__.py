@@ -1,7 +1,7 @@
 """Consolidated ORM models export for application code and Alembic migrations."""
 
 from app.db.base import Base
-from app.db.models.base import TimestampMixin, UUIDPrimaryKeyMixin, generate_logical_key
+from app.db.base_class import TimestampMixin, UUIDPrimaryKeyMixin, generate_logical_key
 from app.db.models.tenant import Tenant, User, AuthSession
 from app.db.models.target import Target, TargetCredential
 from app.db.models.provenance import ProvenanceRecord

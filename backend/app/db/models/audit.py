@@ -7,7 +7,7 @@ from sqlalchemy import DateTime, ForeignKey, Index, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, JSONBType, UUIDType
-from app.db.models.base import UUIDPrimaryKeyMixin
+from app.db.base_class import UUIDPrimaryKeyMixin
 
 
 class AuditLog(Base, UUIDPrimaryKeyMixin):

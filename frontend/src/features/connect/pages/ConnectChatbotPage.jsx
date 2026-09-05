@@ -1,233 +1,363 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import TopNavBar from '../../../shared/components/TopNavBar';
+import AppLayout from '../../../shared/components/AppLayout';
 import toast from 'react-hot-toast';
+import targetService from '../../../services/targetService';
+import jobService from '../../../services/jobService';
 
-const steps = ['Connect', 'Configure', 'Scan', 'Report'];
+const steps = ['Configure Target', 'Verify Connectivity', 'Launch Scan'];
 
 export default function ConnectChatbotPage() {
   const navigate = useNavigate();
-  const [showKey, setShowKey] = useState(false);
-  const [apiUrl, setApiUrl] = useState('');
-  const [apiKey, setApiKey] = useState('');
-  const [testing, setTesting] = useState(false);
-  const [hfRepo, setHfRepo] = useState('');
 
-  const handleTest = () => {
+  // Form states
+  const [targetName, setTargetName] = useState('Fintech Advisor Assistant');
+  const [apiUrl, setApiUrl] = useState('http://127.0.0.1:8000/health/live');
+  const [apiKey, setApiKey] = useState('demo-key-fintech-1234');
+  const [authHeaderKind, setAuthHeaderKind] = useState('API_KEY');
+  const [hfRepo, setHfRepo] = useState('');
+  const [showKey, setShowKey] = useState(false);
+
+  // Async states
+  const [testing, setTesting] = useState(false);
+  const [createdTarget, setCreatedTarget] = useState(null);
+  const [startingScan, setStartingScan] = useState(false);
+
+  const handleTestAndRegister = async () => {
     if (!apiUrl) {
-      toast.error('Please enter an endpoint URL');
+      toast.error('Please specify target API endpoint URL');
       return;
     }
     setTesting(true);
-    setTimeout(() => {
+    try {
+      const payload = {
+        name: targetName || 'Target Chatbot',
+        target_mode: 'HOSTED_HTTP',
+        base_url: apiUrl,
+        auth_header_kind: authHeaderKind,
+        credential_value: apiKey || undefined,
+        description: 'Fintech client assistant endpoint for automated red-teaming',
+      };
+
+      const target = await targetService.createTarget(payload);
+      setCreatedTarget(target);
+      toast.success(`Target "${target.name}" registered and verified in database!`);
+    } catch (err) {
+      toast.error(err.message || 'Failed to register target');
+    } finally {
       setTesting(false);
-      toast.success('Connection established! ✅');
-    }, 1800);
+    }
   };
 
-  const canStart = apiUrl && apiKey;
+  const handleStartScan = async () => {
+    let targetId = createdTarget?.id;
+
+    if (!targetId) {
+      // Auto-register first
+      setStartingScan(true);
+      try {
+        const payload = {
+          name: targetName || 'Target Chatbot',
+          target_mode: 'HOSTED_HTTP',
+          base_url: apiUrl,
+          auth_header_kind: authHeaderKind,
+          credential_value: apiKey || undefined,
+          description: 'Fintech client assistant endpoint',
+        };
+        const target = await targetService.createTarget(payload);
+        setCreatedTarget(target);
+        targetId = target.id;
+      } catch (err) {
+        toast.error('Failed to register target: ' + err.message);
+        setStartingScan(false);
+        return;
+      }
+    }
+
+    setStartingScan(true);
+    try {
+      toast('Creating evaluation job with 25 FinRed adversarial prompts...', { icon: '🛡️' });
+      const job = await jobService.createJob({
+        target_id: targetId,
+        mode: 'QUICK',
+        sample_size: 25,
+        seed: 42,
+      });
+      toast.success('Evaluation job queued successfully!');
+      navigate(`/simulation?jobId=${job.id}`);
+    } catch (err) {
+      toast.error(err.message || 'Could not schedule evaluation job');
+    } finally {
+      setStartingScan(false);
+    }
+  };
+
+  const canStart = Boolean(apiUrl && (apiKey || createdTarget));
 
   return (
-    <div className="bg-background text-on-surface min-h-screen flex flex-col">
-      <TopNavBar />
+    <AppLayout pageTitle="Connect Chatbot Target">
+      <div className="max-w-4xl mx-auto w-full py-4">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: -16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-10"
+        >
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight mb-2">
+            Connect Your Chatbot Target
+          </h1>
+          <p className="text-slate-500 text-sm max-w-xl mx-auto">
+            Register authorized endpoints to dispatch automated red-teaming benchmarks, evaluate guardrails, and assess model safety.
+          </p>
+        </motion.div>
 
-      <main className="flex-grow pt-24 pb-12 px-4 md:px-6 flex flex-col items-center max-w-[1440px] mx-auto w-full">
-        <div className="w-full max-w-4xl">
-          {/* Header */}
+        {/* Step Wizard */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.1 }}
+          className="mb-10 max-w-2xl mx-auto"
+        >
+          <div className="flex items-center justify-between relative">
+            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-0.5 bg-slate-200 -z-10" />
+            {steps.map((step, i) => (
+              <div key={step} className="flex flex-col items-center gap-2">
+                <motion.div
+                  initial={{ scale: 0.8 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: i * 0.1 }}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs border-2 ${
+                    i === 0
+                      ? 'bg-[#0e61a1] text-white border-[#0e61a1] shadow-xs'
+                      : 'bg-white text-slate-500 border-slate-300'
+                  }`}
+                >
+                  {i + 1}
+                </motion.div>
+                <span className={`text-xs font-semibold px-2 bg-[#f8fafc] ${i === 0 ? 'text-[#0e61a1] font-bold' : 'text-slate-500'}`}>
+                  {step}
+                </span>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Connection Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+          {/* API Connection */}
           <motion.div
-            initial={{ opacity: 0, y: -20 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-center mb-12"
-          >
-            <h1 className="text-headline-lg font-bold text-primary mb-2">Connect Your Chatbot</h1>
-            <p className="text-body-lg text-on-surface-variant">
-              Configure your environment to begin trust & safety evaluations.
-            </p>
-          </motion.div>
-
-          {/* Step Wizard */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
             transition={{ delay: 0.15 }}
-            className="mb-12"
+            className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm relative overflow-hidden"
           >
-            <div className="flex items-center justify-between relative">
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-full h-0.5 bg-surface-variant -z-10" />
-              {steps.map((step, i) => (
-                <div key={step} className="flex flex-col items-center gap-2">
-                  <motion.div
-                    initial={{ scale: 0.8 }}
-                    animate={{ scale: 1 }}
-                    transition={{ delay: i * 0.1 }}
-                    className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-label-md border-2 border-background ${
-                      i === 0 ? 'bg-primary text-on-primary' : 'bg-surface-variant text-on-surface-variant'
-                    }`}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2.5 bg-sky-50 text-[#0e61a1] border border-sky-200 rounded-xl">
+                <span className="material-symbols-outlined text-2xl">link</span>
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-slate-900">Target API Endpoint</h2>
+                <p className="text-xs text-slate-500">Direct HTTP JSON interface for test dispatch</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                  Target Name
+                </label>
+                <input
+                  value={targetName}
+                  onChange={(e) => setTargetName(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0e61a1] transition-colors"
+                  placeholder="e.g. Retail Banking Advisor"
+                  type="text"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                  Endpoint URL
+                </label>
+                <input
+                  value={apiUrl}
+                  onChange={(e) => setApiUrl(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0e61a1] transition-colors"
+                  placeholder="https://api.yourbot.com/v1/chat"
+                  type="text"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                  API Key / Secret
+                </label>
+                <div className="relative">
+                  <input
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0e61a1] transition-colors pr-10"
+                    placeholder="sk-..."
+                    type={showKey ? 'text' : 'password'}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowKey(!showKey)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                   >
-                    {i + 1}
-                  </motion.div>
-                  <span className={`text-label-md font-medium px-2 bg-background ${i === 0 ? 'text-primary font-bold' : 'text-on-surface-variant'}`}>
-                    {step}
-                  </span>
+                    <span className="material-symbols-outlined text-lg">
+                      {showKey ? 'visibility' : 'visibility_off'}
+                    </span>
+                  </button>
                 </div>
-              ))}
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                  Credential Kind
+                </label>
+                <select
+                  value={authHeaderKind}
+                  onChange={(e) => setAuthHeaderKind(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-sm text-slate-800 focus:outline-none focus:bg-white focus:border-[#0e61a1] transition-colors"
+                >
+                  <option value="API_KEY">Bearer Token / API Key</option>
+                  <option value="CUSTOM_HEADER">Custom Header (X-API-Key)</option>
+                  <option value="OAUTH">OAuth Token</option>
+                </select>
+              </div>
+
+              <motion.button
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
+                onClick={handleTestAndRegister}
+                disabled={testing}
+                className="mt-4 w-full py-2.5 px-4 bg-sky-50 hover:bg-sky-100 border border-sky-300 text-[#0e61a1] rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-2xs"
+              >
+                {testing ? (
+                  <>
+                    <span className="material-symbols-outlined animate-spin text-sm">sync</span>
+                    Saving & Verifying...
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-sm">cloud_upload</span>
+                    <span>Register & Verify in DB</span>
+                  </>
+                )}
+              </motion.button>
+
+              {createdTarget && (
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-base text-emerald-600">check_circle</span>
+                  <span>Target active: <strong>{createdTarget.name}</strong> (Status: {createdTarget.status})</span>
+                </div>
+              )}
             </div>
           </motion.div>
 
-          {/* Connection Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-12">
-            {/* API Connection */}
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              whileHover={{ borderColor: '#13315c' }}
-              className="bg-surface-container-lowest rounded-xl p-6 border border-[#E8F4F8] shadow-ice relative overflow-hidden group transition-colors"
-            >
-              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <span className="material-symbols-outlined text-[64px]">api</span>
-              </div>
-              <div className="flex items-center gap-3 mb-6 relative z-10">
-                <div className="p-2 bg-primary-container text-on-primary-container rounded-lg">
-                  <span className="material-symbols-outlined">link</span>
-                </div>
-                <h2 className="text-title-lg font-bold text-primary">Connect via API</h2>
-              </div>
-              <div className="space-y-4 relative z-10">
-                <div>
-                  <label className="block text-label-md text-on-surface-variant mb-1">Endpoint URL</label>
-                  <input
-                    value={apiUrl}
-                    onChange={(e) => setApiUrl(e.target.value)}
-                    className="w-full bg-background border border-outline-variant rounded-lg px-3 py-2 text-body-md focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-colors"
-                    placeholder="https://api.yourbot.com/v1/chat"
-                    type="text"
-                  />
-                </div>
-                <div>
-                  <label className="block text-label-md text-on-surface-variant mb-1">API Key</label>
-                  <div className="relative">
-                    <input
-                      value={apiKey}
-                      onChange={(e) => setApiKey(e.target.value)}
-                      className="w-full bg-background border border-outline-variant rounded-lg px-3 py-2 text-body-md focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-colors pr-10"
-                      placeholder="sk-..."
-                      type={showKey ? 'text' : 'password'}
-                    />
-                    <button
-                      onClick={() => setShowKey(!showKey)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary"
-                    >
-                      <span className="material-symbols-outlined text-body-lg">
-                        {showKey ? 'visibility' : 'visibility_off'}
-                      </span>
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-label-md text-on-surface-variant mb-1">Auth Header</label>
-                  <select className="w-full bg-background border border-outline-variant rounded-lg px-3 py-2 text-body-md focus:border-secondary outline-none appearance-none">
-                    <option>Bearer Token</option>
-                    <option>x-api-key</option>
-                    <option>Basic Auth</option>
-                  </select>
-                </div>
-                <motion.button
-                  whileHover={{ scale: 1.01 }}
-                  whileTap={{ scale: 0.99 }}
-                  onClick={handleTest}
-                  disabled={testing}
-                  className="mt-4 w-full py-2 px-4 bg-background border border-[#1B4F8C] text-[#1B4F8C] hover:bg-surface-container-low rounded-lg text-label-md font-bold transition-colors flex items-center justify-center gap-2"
-                >
-                  {testing ? (
-                    <><span className="material-symbols-outlined animate-spin text-[18px]">sync</span> Testing...</>
-                  ) : (
-                    <><span>Test Connection</span><span className="w-2 h-2 rounded-full bg-secondary pulse-dot" /></>
-                  )}
-                </motion.button>
-              </div>
-            </motion.div>
-
-            {/* Local / HuggingFace */}
-            <motion.div
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              whileHover={{ borderColor: '#13315c' }}
-              className="bg-surface-container-lowest rounded-xl p-6 border border-[#E8F4F8] shadow-ice relative overflow-hidden group transition-colors"
-            >
-              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <span className="material-symbols-outlined text-[64px]">memory</span>
-              </div>
-              <div className="flex items-center gap-3 mb-6 relative z-10">
-                <div className="p-2 bg-tertiary-container text-on-tertiary-container rounded-lg">
-                  <span className="material-symbols-outlined">terminal</span>
-                </div>
-                <h2 className="text-title-lg font-bold text-primary">Local / Hugging Face</h2>
-              </div>
-              <div className="space-y-4 relative z-10">
-                <div className="bg-surface p-4 rounded-lg border border-outline-variant">
-                  <h3 className="text-label-md text-primary font-bold mb-2">Prerequisites Checklist</h3>
-                  <ul className="space-y-2">
-                    <li className="flex items-start gap-2 text-body-md text-on-surface-variant">
-                      <span className="material-symbols-outlined text-[16px] text-secondary mt-0.5">check_circle</span>
-                      Aegis CLI installed (v2.1+)
-                    </li>
-                    <li className="flex items-start gap-2 text-body-md text-on-surface-variant">
-                      <span className="material-symbols-outlined text-[16px] text-outline mt-0.5">radio_button_unchecked</span>
-                      Local agent running on port 8080
-                    </li>
-                  </ul>
-                </div>
-                <div>
-                  <label className="block text-label-md text-on-surface-variant mb-1">Hugging Face Repo ID (Optional)</label>
-                  <input
-                    value={hfRepo}
-                    onChange={(e) => setHfRepo(e.target.value)}
-                    className="w-full bg-background border border-outline-variant rounded-lg px-3 py-2 text-body-md focus:border-secondary focus:ring-1 focus:ring-secondary outline-none transition-colors"
-                    placeholder="organization/model-name"
-                    type="text"
-                  />
-                </div>
-                <motion.button
-                  whileHover={{ scale: 1.01 }}
-                  className="w-full py-2 px-4 bg-background border border-[#1B4F8C] text-[#1B4F8C] hover:bg-surface-container-low rounded-lg text-label-md font-bold transition-colors flex items-center justify-center gap-2"
-                >
-                  <span className="material-symbols-outlined text-[18px]">search</span> Detect Local Agent
-                </motion.button>
-                <div className="flex justify-center">
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-surface-container text-on-surface-variant text-[10px] uppercase font-bold tracking-wider">
-                    <span className="w-1.5 h-1.5 rounded-full bg-outline" /> Not Detected
-                  </span>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Start Scan CTA */}
+          {/* Local / HuggingFace */}
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: canStart ? 1 : 0.5 }}
-            transition={{ duration: 0.3 }}
-            className="flex flex-col items-center gap-3"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm relative overflow-hidden"
           >
-            <motion.button
-              whileHover={canStart ? { scale: 1.02, boxShadow: '0 4px 20px rgba(11,37,69,0.3)' } : {}}
-              whileTap={canStart ? { scale: 0.97 } : {}}
-              disabled={!canStart}
-              onClick={() => navigate('/simulation')}
-              className="btn-primary px-8 py-4 rounded-xl text-title-lg font-bold flex items-center gap-3 shadow-ice-deep"
-            >
-              <span className="material-symbols-outlined">security</span>
-              Start Trust & Safety Scan
-            </motion.button>
-            {!canStart && (
-              <p className="text-label-md text-on-surface-variant">Connect an agent to proceed</p>
-            )}
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2.5 bg-amber-50 text-amber-600 border border-amber-200 rounded-xl">
+                <span className="material-symbols-outlined text-2xl">memory</span>
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-slate-900">Local / Hugging Face</h2>
+                <p className="text-xs text-slate-500">Direct open-weights or local runner connector</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <h3 className="text-xs text-[#0e61a1] font-bold uppercase tracking-wider mb-1.5">
+                  Local Adapter Guide
+                </h3>
+                <p className="text-xs text-slate-600 mb-2">
+                  For local models, Aegis AI routes requests through your local connector without exposing GPU weights.
+                </p>
+                <ul className="space-y-1.5 text-xs text-slate-500">
+                  <li className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-emerald-600 text-sm">check</span>
+                    <span>No GPU required on Aegis server</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-emerald-600 text-sm">check</span>
+                    <span>Deterministic seed (42) reproducibility</span>
+                  </li>
+                </ul>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                  Hugging Face Model ID (Optional)
+                </label>
+                <input
+                  value={hfRepo}
+                  onChange={(e) => setHfRepo(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0e61a1] transition-colors"
+                  placeholder="meta-llama/Llama-3.2-3B-Instruct"
+                  type="text"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setTargetName('Local LLM Adapter');
+                  setApiUrl('http://127.0.0.1:8080/v1/chat/completions');
+                  toast('Populated local endpoint settings', { icon: '💻' });
+                }}
+                className="w-full py-2 px-4 bg-slate-100 hover:bg-slate-200 border border-slate-300 text-slate-700 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2"
+              >
+                <span className="material-symbols-outlined text-base">desktop_windows</span>
+                <span>Use Local Host (127.0.0.1:8080)</span>
+              </button>
+            </div>
           </motion.div>
         </div>
-      </main>
-    </div>
+
+        {/* Start Scan CTA */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: canStart ? 1 : 0.6 }}
+          transition={{ duration: 0.3 }}
+          className="flex flex-col items-center gap-3"
+        >
+          <motion.button
+            whileHover={canStart ? { scale: 1.02 } : {}}
+            whileTap={canStart ? { scale: 0.98 } : {}}
+            disabled={!canStart || startingScan}
+            onClick={handleStartScan}
+            className={`px-8 py-3.5 rounded-xl text-sm md:text-base font-bold flex items-center gap-2.5 shadow-sm transition-all ${
+              canStart
+                ? 'bg-[#0e61a1] hover:bg-[#0b4e82] text-white cursor-pointer'
+                : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+            }`}
+          >
+            {startingScan ? (
+              <>
+                <span className="material-symbols-outlined animate-spin text-lg">refresh</span>
+                <span>Scheduling Evaluation Job...</span>
+              </>
+            ) : (
+              <>
+                <span className="material-symbols-outlined text-lg">security</span>
+                <span>Start Trust & Safety Scan (Quick Mode: 25 Attack Prompts)</span>
+              </>
+            )}
+          </motion.button>
+          {!canStart && (
+            <p className="text-xs text-slate-400">Configure target endpoint and click Register to begin</p>
+          )}
+        </motion.div>
+      </div>
+    </AppLayout>
   );
 }
