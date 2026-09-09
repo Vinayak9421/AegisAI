@@ -24,7 +24,7 @@ export function AuthProvider({ children }) {
       const data = await authService.login(email, password);
       setUser(data.user);
       setToken(data.access_token);
-      return data;
+      return data.user || data;
     } finally {
       setLoading(false);
     }

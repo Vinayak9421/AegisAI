@@ -20,7 +20,12 @@ class Settings(BaseSettings):
     APP_ENV: AppEnvironment = AppEnvironment.DEVELOPMENT
     API_V1_STR: str = "/api/v1"
     LOG_LEVEL: str = "INFO"
-    CORS_ORIGINS: Union[List[str], str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    CORS_ORIGINS: Union[List[str], str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ]
 
     # Database
     DATABASE_URL: str = "postgresql+psycopg2://postgres:postgres@localhost:5432/aegis_ai"

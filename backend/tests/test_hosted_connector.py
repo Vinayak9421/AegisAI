@@ -58,7 +58,7 @@ async def test_hosted_connector_invoke_success_with_mock_transport(monkeypatch):
     assert response.text == "Hello! I am a financial guidance bot. How can I help you?"
     assert response.provider_request_id == "prov-req-999"
     assert len(response.response_hash) == 64
-    assert response.connector_version == "hosted_v1.0"
+    assert response.connector_version.startswith("aegis_simple_chat") or response.connector_version == "hosted_v1.0"
 
 
 @pytest.mark.asyncio

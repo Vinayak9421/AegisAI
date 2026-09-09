@@ -6,6 +6,7 @@ import time
 from typing import Any, Dict, Optional
 import httpx
 
+from app.connectors.profiles.registry import get_connector_profile
 from app.core.config import settings
 from app.core.errors import (
     AuthenticationError,
@@ -25,20 +26,23 @@ from app.domain.contracts import (
 
 
 class HostedConnector(TargetConnectorPort):
-    """Adapter for hosted HTTP/HTTPS LLM application endpoints."""
+    """Adapter for hosted HTTP/HTTPS LLM application endpoints supporting profile-based request/response shaping."""
 
     def __init__(
         self,
         endpoint_url: str,
         decrypted_credential: Optional[str] = None,
         request_profile: Optional[Dict[str, Any]] = None,
+        connector_profile_name: Optional[str] = None,
     ):
         self.raw_endpoint_url = endpoint_url
         self.decrypted_credential = decrypted_credential
         self.request_profile = request_profile or {}
+        self.connector_profile_name = connector_profile_name or self.request_profile.get("connector_profile", "aegis_simple_chat_v1")
+        self.profile = get_connector_profile(self.connector_profile_name)
 
     async def validate(self, configuration: Dict[str, Any]) -> ConnectorValidationReport:
-        """Validate target URL safety (SSRF check) and perform lightweight connectivity probe."""
+        """Validate target URL safety (SSRF check) and perform lightweight connectivity/schema probe."""
         endpoint_url = configuration.get("endpoint_url") or self.raw_endpoint_url
         if not endpoint_url:
             return ConnectorValidationReport(
@@ -57,24 +61,57 @@ class HostedConnector(TargetConnectorPort):
             )
 
         # Build probe headers
-        headers = dict(self.request_profile.get("headers", {}))
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "AegisAI-Validator/1.0",
+            **self.request_profile.get("headers", {}),
+        }
         if self.decrypted_credential:
             headers["Authorization"] = f"Bearer {self.decrypted_credential}"
 
-        # Lightweight probe (OPTIONS or GET probe)
+        probe_prompt, probe_payload = self.profile.get_probe_payload()
+        probe_req = self.profile.build_request(
+            endpoint_url=canonical_url,
+            prompt=probe_prompt,
+            extra_config=self.request_profile,
+        )
+        if probe_req.json_payload:
+            payload = probe_req.json_payload
+        else:
+            payload = probe_payload
+
+        start_time = time.perf_counter()
         try:
             async with httpx.AsyncClient(
                 timeout=httpx.Timeout(settings.TARGET_CONNECT_TIMEOUT, read=settings.TARGET_READ_TIMEOUT),
                 follow_redirects=False,
             ) as client:
-                resp = await client.request("OPTIONS", canonical_url, headers=headers)
-                status_ok = resp.status_code < 500
+                resp = await client.post(canonical_url, json=payload, headers=headers)
+                latency_ms = round((time.perf_counter() - start_time) * 1000, 2)
+                status_ok = resp.status_code < 400
+
+                parsed_json = None
+                schema_valid = False
+                try:
+                    parsed_json = resp.json()
+                    parsed = self.profile.parse_response(parsed_json, resp.text)
+                    schema_valid = bool(parsed.text)
+                except Exception:
+                    schema_valid = False
+
                 return ConnectorValidationReport(
                     is_valid=status_ok,
-                    status_message=f"Endpoint responded with HTTP {resp.status_code}",
+                    status_message=f"Endpoint responded with HTTP {resp.status_code} ({latency_ms}ms)",
                     resolved_host_hash=host_hash,
-                    capabilities={"http_status": resp.status_code, "server": resp.headers.get("server", "unknown")},
-                    safe_error_class=None if status_ok else "server_error",
+                    capabilities={
+                        "http_status": resp.status_code,
+                        "server": resp.headers.get("server", "unknown"),
+                        "latency_ms": latency_ms,
+                        "response_size_bytes": len(resp.content),
+                        "schema_valid": schema_valid,
+                        "connector_profile": self.profile.profile_name,
+                    },
+                    safe_error_class=None if status_ok else f"http_{resp.status_code}",
                 )
         except httpx.ConnectTimeout:
             return ConnectorValidationReport(
@@ -92,7 +129,7 @@ class HostedConnector(TargetConnectorPort):
             )
 
     async def invoke(self, request: ConnectorRequest) -> ConnectorResponse:
-        """Invoke hosted target application with prompt and conversation history."""
+        """Invoke hosted target application with prompt and conversation history using active profile."""
         canonical_url, _ = validate_target_url(self.raw_endpoint_url)
 
         headers = {
@@ -104,16 +141,15 @@ class HostedConnector(TargetConnectorPort):
         if self.decrypted_credential:
             headers["Authorization"] = f"Bearer {self.decrypted_credential}"
 
-        # Form standard payload
-        messages = []
-        for turn in request.ordered_history:
-            messages.append({"role": turn.get("role", "user"), "content": turn.get("content", "")})
-        messages.append({"role": "user", "content": request.message})
-
-        payload = {
-            "messages": messages,
-            **self.request_profile.get("extra_body", {}),
-        }
+        # Build normalized profile payload
+        norm_req = self.profile.build_request(
+            endpoint_url=canonical_url,
+            prompt=request.message,
+            history=request.ordered_history,
+            session_id=None,
+            request_id=request.request_id,
+            extra_config=self.request_profile,
+        )
 
         timeout_sec = request.timeout_budget_ms / 1000.0
         start_time = time.perf_counter()
@@ -123,9 +159,8 @@ class HostedConnector(TargetConnectorPort):
                 timeout=httpx.Timeout(timeout_sec, connect=settings.TARGET_CONNECT_TIMEOUT),
                 follow_redirects=False,
             ) as client:
-                response = await client.post(canonical_url, json=payload, headers=headers)
+                response = await client.post(canonical_url, json=norm_req.json_payload, headers=headers)
         except httpx.TimeoutException:
-            duration_ms = int((time.perf_counter() - start_time) * 1000)
             raise TargetUnavailableError(f"Target timed out after {request.timeout_budget_ms}ms")
         except httpx.RequestError as e:
             raise TargetUnavailableError(f"Target connection failed: {type(e).__name__}")
@@ -148,44 +183,31 @@ class HostedConnector(TargetConnectorPort):
 
         response_hash = hashlib.sha256(content_bytes).hexdigest()
 
-        # Extract text output
-        text_content = ""
-        structured_data = {}
+        # Parse response using active profile
+        raw_json = None
         try:
-            parsed_json = response.json()
-            if isinstance(parsed_json, dict):
-                structured_data = parsed_json
-                if "choices" in parsed_json and len(parsed_json["choices"]) > 0:
-                    text_content = parsed_json["choices"][0].get("message", {}).get("content", "")
-                elif "response" in parsed_json:
-                    text_content = str(parsed_json["response"])
-                elif "output" in parsed_json:
-                    text_content = str(parsed_json["output"])
-                elif "content" in parsed_json:
-                    text_content = str(parsed_json["content"])
-                else:
-                    text_content = response.text
-            else:
-                text_content = response.text
+            raw_json = response.json()
         except Exception:
-            text_content = response.text
+            raw_json = None
 
+        parsed = self.profile.parse_response(raw_json, response.text)
         provider_req_id = response.headers.get("x-request-id") or response.headers.get("request-id")
 
         return ConnectorResponse(
-            text=text_content,
-            structured_output=structured_data if structured_data else None,
+            text=parsed.text,
+            structured_output=parsed.raw_json,
             provider_request_id=provider_req_id,
             status="SUCCESS",
             duration_ms=duration_ms,
-            usage_metadata={"http_status": response.status_code, "content_length": len(content_bytes)},
+            usage_metadata={"http_status": response.status_code, "content_length": len(content_bytes), **parsed.usage_metadata},
             response_hash=response_hash,
-            connector_version="hosted_v1.0",
+            connector_version=f"{self.profile.profile_name}_{self.profile.profile_version}",
         )
 
     async def capabilities(self) -> Dict[str, Any]:
         return {
             "mode": "HOSTED",
+            "connector_profile": self.profile.profile_name,
             "supports_streaming": False,
             "supports_traces": False,
             "supports_multi_turn": True,
@@ -195,5 +217,6 @@ class HostedConnector(TargetConnectorPort):
         return {
             "mode": "HOSTED",
             "endpoint_url": self.raw_endpoint_url,
+            "connector_profile": self.profile.profile_name,
             "has_credential": bool(self.decrypted_credential),
         }

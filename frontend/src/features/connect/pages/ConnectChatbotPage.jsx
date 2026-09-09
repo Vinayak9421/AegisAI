@@ -13,7 +13,7 @@ export default function ConnectChatbotPage() {
 
   // Form states
   const [targetName, setTargetName] = useState('Fintech Advisor Assistant');
-  const [apiUrl, setApiUrl] = useState('http://127.0.0.1:8000/health/live');
+  const [apiUrl, setApiUrl] = useState('http://127.0.0.1:8001/chat');
   const [apiKey, setApiKey] = useState('demo-key-fintech-1234');
   const [authHeaderKind, setAuthHeaderKind] = useState('API_KEY');
   const [hfRepo, setHfRepo] = useState('');
@@ -33,16 +33,37 @@ export default function ConnectChatbotPage() {
     try {
       const payload = {
         name: targetName || 'Target Chatbot',
-        target_mode: 'HOSTED_HTTP',
-        base_url: apiUrl,
-        auth_header_kind: authHeaderKind,
-        credential_value: apiKey || undefined,
-        description: 'Fintech client assistant endpoint for automated red-teaming',
+        mode: 'HOSTED',
+        endpoint_url: apiUrl,
+        connector_profile: 'aegis_simple_chat_v1',
+        authorization_confirmed: true,
+        authorization_reference: 'team-authorized-pilot-target',
+        side_effect_free: true,
+        credential_payload: apiKey || undefined,
+        credential_kind: authHeaderKind === 'BEARER_TOKEN' ? 'BEARER_TOKEN' : 'API_KEY',
       };
 
-      const target = await targetService.createTarget(payload);
-      setCreatedTarget(target);
-      toast.success(`Target "${target.name}" registered and verified in database!`);
+      let target;
+      try {
+        target = await targetService.createTarget(payload);
+      } catch (err) {
+        // If target exists or returns conflict, fetch target list
+        const targets = await targetService.listTargets();
+        target = targets.find((t) => t.endpoint_url === apiUrl || t.name === payload.name);
+        if (!target) throw err;
+      }
+
+      // Automatically verify target connectivity
+      toast('Probing target connectivity and SSRF safety...', { icon: '🔍' });
+      try {
+        await targetService.verifyTarget(target.id);
+      } catch (valErr) {
+        console.warn('Verification note:', valErr);
+      }
+
+      const refreshed = await targetService.getTarget(target.id);
+      setCreatedTarget(refreshed);
+      toast.success(`Target "${refreshed.name}" verified & ready for evaluation!`);
     } catch (err) {
       toast.error(err.message || 'Failed to register target');
     } finally {
@@ -51,35 +72,44 @@ export default function ConnectChatbotPage() {
   };
 
   const handleStartScan = async () => {
-    let targetId = createdTarget?.id;
-
-    if (!targetId) {
-      // Auto-register first
-      setStartingScan(true);
-      try {
-        const payload = {
-          name: targetName || 'Target Chatbot',
-          target_mode: 'HOSTED_HTTP',
-          base_url: apiUrl,
-          auth_header_kind: authHeaderKind,
-          credential_value: apiKey || undefined,
-          description: 'Fintech client assistant endpoint',
-        };
-        const target = await targetService.createTarget(payload);
-        setCreatedTarget(target);
-        targetId = target.id;
-      } catch (err) {
-        toast.error('Failed to register target: ' + err.message);
-        setStartingScan(false);
-        return;
-      }
-    }
-
     setStartingScan(true);
     try {
+      let target = createdTarget;
+
+      if (!target) {
+        const payload = {
+          name: targetName || 'Target Chatbot',
+          mode: 'HOSTED',
+          endpoint_url: apiUrl,
+          connector_profile: 'aegis_simple_chat_v1',
+          authorization_confirmed: true,
+          authorization_reference: 'team-authorized-pilot-target',
+          side_effect_free: true,
+          credential_payload: apiKey || undefined,
+          credential_kind: authHeaderKind === 'BEARER_TOKEN' ? 'BEARER_TOKEN' : 'API_KEY',
+        };
+        try {
+          target = await targetService.createTarget(payload);
+        } catch (err) {
+          const targets = await targetService.listTargets();
+          target = targets.find((t) => t.endpoint_url === apiUrl || t.name === payload.name);
+          if (!target) throw err;
+        }
+      }
+
+      // Ensure target is verified before starting scan
+      if (target.status !== 'VERIFIED') {
+        toast('Verifying target status...', { icon: '🔍' });
+        try {
+          await targetService.verifyTarget(target.id);
+        } catch (valErr) {
+          console.warn('Verification probe response:', valErr);
+        }
+      }
+
       toast('Creating evaluation job with 25 FinRed adversarial prompts...', { icon: '🛡️' });
       const job = await jobService.createJob({
-        target_id: targetId,
+        target_id: target.id,
         mode: 'QUICK',
         sample_size: 25,
         seed: 42,

@@ -74,6 +74,14 @@ class TargetService(BaseService):
             tenant_id=tenant_id,
             name=request.name,
             mode=request.mode,
+            connector_profile=request.connector_profile or "aegis_simple_chat_v1",
+            connector_profile_version=request.connector_profile_version or "1.0.0",
+            authorization_reference=request.authorization_reference,
+            authorization_expires_at=request.authorization_expires_at,
+            side_effect_free=request.side_effect_free,
+            allowed_test_categories=request.allowed_test_categories or [],
+            rate_limit_requests_per_minute=request.rate_limit_requests_per_minute,
+            request_budget_per_job=request.request_budget_per_job,
             endpoint_url=canonical_url,
             model_ref=request.model_ref,
             request_profile=request.request_profile,
@@ -270,6 +278,7 @@ class TargetService(BaseService):
         })
 
         target.last_validated_at = now
+        target.validation_report = report.capabilities or {}
         if report.is_valid:
             target.status = TargetStatus.VERIFIED
             target.verified_at = now

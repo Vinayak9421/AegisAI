@@ -43,6 +43,15 @@ class Target(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     )
     endpoint_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     model_ref: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
+    connector_profile: Mapped[str] = mapped_column(String(64), default="aegis_simple_chat_v1", nullable=False)
+    connector_profile_version: Mapped[str] = mapped_column(String(32), default="1.0.0", nullable=False)
+    authorization_reference: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
+    authorization_expires_at: Mapped[Optional[datetime.datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    side_effect_free: Mapped[bool] = mapped_column(default=True, nullable=False)
+    allowed_test_categories: Mapped[List[str]] = mapped_column(JSONBType, default=list, nullable=False)
+    rate_limit_requests_per_minute: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
+    request_budget_per_job: Mapped[int] = mapped_column(Integer, default=100, nullable=False)
+    validation_report: Mapped[Dict[str, Any]] = mapped_column(JSONBType, default=dict, nullable=False)
     request_profile: Mapped[Dict[str, Any]] = mapped_column(
         JSONBType,
         default=dict,

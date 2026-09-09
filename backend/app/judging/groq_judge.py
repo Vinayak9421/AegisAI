@@ -2,6 +2,7 @@
 
 import json
 import re
+import unicodedata
 from typing import Any, Dict, Optional
 import httpx
 
@@ -45,7 +46,7 @@ HARMFUL_PATTERNS = [
 
 
 class GroqJudgeAdapter(JudgePort):
-    """Independent judge adapter invoking Groq / Llama-3.3-70B with structured JSON schema and fallback."""
+    """Independent judge adapter invoking Groq / Llama-3.3-70B with structured JSON schema, anti-injection fencing, and fallback."""
 
     def __init__(
         self,
@@ -58,6 +59,15 @@ class GroqJudgeAdapter(JudgePort):
         self.timeout = timeout or settings.JUDGE_TIMEOUT
         self.api_url = "https://api.groq.com/openai/v1/chat/completions"
 
+    def _sanitize_evidence(self, text: Optional[str], max_chars: int = 16000) -> str:
+        """Normalize unicode and truncate long untrusted evidence."""
+        if not text:
+            return ""
+        norm = unicodedata.normalize("NFKC", text)
+        if len(norm) > max_chars:
+            norm = norm[:max_chars] + "\n...[TRUNCATED_AT_16KB_BUDGET]"
+        return norm
+
     async def evaluate(self, input_data: JudgeInput) -> JudgeOutput:
         """Evaluate an adversarial interaction and return a structured verdict."""
         # 1. If no live API key is configured or offline mode is requested, use rule-based fallback
@@ -65,10 +75,13 @@ class GroqJudgeAdapter(JudgePort):
             return self._heuristic_fallback_evaluate(input_data)
 
         # 2. Live Groq API call with Llama-3.3-70B
+        sanitized_response = self._sanitize_evidence(input_data.target_response)
+        sanitized_prompt = self._sanitize_evidence(input_data.test_case_prompt, max_chars=12000)
+
         prompt_content = JUDGE_USER_PROMPT_TEMPLATE.format(
             category=input_data.category,
-            attack_prompt=input_data.test_case_prompt,
-            target_response=input_data.target_response,
+            attack_prompt=sanitized_prompt,
+            target_response=sanitized_response,
             owasp_id=input_data.trace_stage.get("owasp_id", "") if input_data.trace_stage else "",
         )
 
@@ -111,44 +124,64 @@ class GroqJudgeAdapter(JudgePort):
             return self._heuristic_fallback_evaluate(input_data)
 
     def _parse_and_validate_verdict(self, raw_json_str: str, input_data: JudgeInput) -> JudgeOutput:
-        """Parse, validate, and normalize JSON output into a JudgeOutput schema."""
+        """Parse, validate, and normalize JSON output into a JudgeOutput schema with regex repair."""
+        clean_str = raw_json_str.strip()
+        data = None
+
+        # Direct JSON parse attempt
         try:
-            data = json.loads(raw_json_str)
-            verdict_raw = str(data.get("verdict", "AMBIGUOUS")).upper()
-            severity_raw = str(data.get("severity", "NONE")).upper()
+            data = json.loads(clean_str)
+        except Exception:
+            # Attempt repair by extracting first {...} block
+            match = re.search(r"\{.*\}", clean_str, re.DOTALL)
+            if match:
+                try:
+                    data = json.loads(match.group(0))
+                except Exception:
+                    data = None
 
-            # Normalize verdict
-            if verdict_raw not in Verdict.__members__:
-                verdict_raw = Verdict.AMBIGUOUS.value
-
-            # Normalize severity
-            if severity_raw not in SeverityLevel.__members__:
-                severity_raw = SeverityLevel.NONE.value if verdict_raw == Verdict.SAFE.value else SeverityLevel.MEDIUM.value
-
-            # Enforce that SAFE responses always have severity NONE
-            if verdict_raw == Verdict.SAFE.value:
-                severity_raw = SeverityLevel.NONE.value
-
-            return JudgeOutput(
-                verdict=verdict_raw,
-                severity=severity_raw,
-                category=data.get("category") or input_data.category,
-                owasp_id=data.get("owasp_id"),
-                rationale=str(data.get("rationale", "Evaluated by independent judge model.")),
-                confidence=float(data.get("confidence", 0.90)),
-                rubric_version=input_data.rubric_version,
-                schema_version="1.0.0",
-            )
-        except Exception as e:
-            logger.error(f"Failed to parse judge JSON: {e}. Raw content: {raw_json_str[:150]}")
+        if not data or not isinstance(data, dict):
+            logger.error(f"Failed to parse judge JSON: raw content was {clean_str[:150]}")
             return JudgeOutput(
                 verdict=Verdict.NOT_EVALUABLE.value,
                 severity=SeverityLevel.NONE.value,
                 category=input_data.category,
-                rationale="Judge output was malformed or unparseable.",
+                rationale="Judge output was malformed or unparseable JSON.",
                 rubric_version=input_data.rubric_version,
                 schema_version="1.0.0",
             )
+
+        verdict_raw = str(data.get("verdict", "AMBIGUOUS")).upper()
+        severity_raw = str(data.get("severity", "NONE")).upper()
+
+        # Normalize verdict
+        if verdict_raw not in Verdict.__members__:
+            verdict_raw = Verdict.AMBIGUOUS.value
+
+        # Normalize severity
+        if severity_raw not in SeverityLevel.__members__:
+            severity_raw = SeverityLevel.NONE.value if verdict_raw == Verdict.SAFE.value else SeverityLevel.MEDIUM.value
+
+        # Enforce that SAFE responses always have severity NONE
+        if verdict_raw == Verdict.SAFE.value:
+            severity_raw = SeverityLevel.NONE.value
+
+        confidence = 0.90
+        try:
+            confidence = float(data.get("confidence", 0.90))
+        except (ValueError, TypeError):
+            confidence = 0.90
+
+        return JudgeOutput(
+            verdict=verdict_raw,
+            severity=severity_raw,
+            category=data.get("category") or input_data.category,
+            owasp_id=data.get("owasp_id"),
+            rationale=str(data.get("rationale", "Evaluated by independent judge model.")),
+            confidence=confidence,
+            rubric_version=input_data.rubric_version,
+            schema_version="1.0.0",
+        )
 
     def _heuristic_fallback_evaluate(self, input_data: JudgeInput) -> JudgeOutput:
         """Heuristic rule-based evaluator used in offline development and test environments."""

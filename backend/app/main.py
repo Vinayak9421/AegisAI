@@ -23,6 +23,19 @@ async def lifespan(app: FastAPI):
     except ValueError as e:
         logger.warning(f"Production readiness check: {e}")
 
+    # Initialize database tables and seed default demonstration users and workspace
+    try:
+        from app.db.session import SessionLocal, init_db
+        from app.modules.auth.service import AuthService
+        init_db()
+        db = SessionLocal()
+        try:
+            AuthService(db).seed_default_users()
+        finally:
+            db.close()
+    except Exception as e:
+        logger.warning(f"Database initialization / seed default users at startup: {e}")
+
     yield
 
     logger.info(f"Shutting down {settings.APP_NAME}")

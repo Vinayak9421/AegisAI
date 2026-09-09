@@ -20,6 +20,7 @@ class ConnectorFactory:
                 endpoint_url=target.endpoint_url,
                 decrypted_credential=decrypted_credential,
                 request_profile=target.request_profile,
+                connector_profile_name=getattr(target, "connector_profile", "aegis_simple_chat_v1"),
             )
         elif target.mode == TargetMode.LOCAL_HF:
             raise ValidationError("LOCAL_HF mode connector will be enabled in a later phase")

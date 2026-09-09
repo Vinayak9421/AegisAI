@@ -44,3 +44,14 @@ htmlcov/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Databases & local stores
+*.db
+*.sqlite
+*.sqlite3
+
+# Node dependencies
+node_modules/
+dist/
+.vite/
+

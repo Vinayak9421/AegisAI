@@ -33,8 +33,28 @@ class TargetMode(str, enum.Enum):
     AGENT = "AGENT"
 
 
+class ConnectorProfile(str, enum.Enum):
+    AEGIS_SIMPLE_CHAT_V1 = "aegis_simple_chat_v1"
+    OPENAI_CHAT_V1 = "openai_chat_v1"
+    GRADIO_SPACE_V1 = "gradio_space_v1"
+    CUSTOM_REST_V1 = "custom_rest_v1"
+
+
+class EvaluationLevel(str, enum.Enum):
+    PRELIMINARY_RAPID = "PRELIMINARY_RAPID"
+    FULL = "FULL"
+
+
+class HumanReviewStatus(str, enum.Enum):
+    NONE = "NONE"
+    PENDING = "PENDING"
+    REVIEWED = "REVIEWED"
+    DISPUTED = "DISPUTED"
+
+
 class TargetStatus(str, enum.Enum):
     PENDING_VALIDATION = "PENDING_VALIDATION"
+    VALIDATING = "VALIDATING"
     VERIFIED = "VERIFIED"
     VALIDATION_FAILED = "VALIDATION_FAILED"
     SUSPENDED = "SUSPENDED"

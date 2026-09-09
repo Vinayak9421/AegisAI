@@ -203,6 +203,12 @@ def delete_target(
     response_model=ApiResponse[TargetValidationResponse],
     summary="Validate Target Connectivity & SSRF Safety",
 )
+@router.post(
+    "/{id}/verify",
+    response_model=ApiResponse[TargetValidationResponse],
+    summary="Verify Target Connectivity & SSRF Safety (Alias)",
+    include_in_schema=False,
+)
 async def validate_target(
     id: uuid.UUID,
     db: Session = Depends(get_db),

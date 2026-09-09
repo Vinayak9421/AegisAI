@@ -247,6 +247,64 @@ def seed_harmbench_dataset(service: BenchmarkService, datasets_dir: Path) -> int
     return result.ingested_count
 
 
+def seed_benign_dataset(service: BenchmarkService, datasets_dir: Path) -> int:
+    """Ingest benign baseline calibration dataset."""
+    benign_csv = datasets_dir / "benign-behaviors.csv"
+    if not benign_csv.exists():
+        logger.warning(f"Benign dataset not found at {benign_csv}")
+        return 0
+
+    source = None
+    for s in service.list_sources():
+        if s.source.name == "Benign Financial & General Baseline":
+            source = service.get_source(s.source.id)
+            break
+
+    if not source:
+        source = service.create_source(
+            tenant_id=None,
+            request=CreateBenchmarkSourceRequest(
+                name="Benign Financial & General Baseline",
+                source_type=BenchmarkSourceType.DOMAIN_CUSTOM,
+                external_ref="https://aegis-ai.internal/datasets/benign",
+                revision="benign_v1.0",
+                license_text="Public Domain / CC-0",
+            ),
+        )
+
+    all_cases: List[CreateTestCaseRequest] = []
+    with open(benign_csv, mode="r", encoding="utf-8", errors="replace") as f:
+        reader = csv.DictReader(f)
+        for idx, row in enumerate(reader, 1):
+            prompt = row.get("prompt") or row.get("behavior") or row.get("goal") or row.get("text")
+            if not prompt or not prompt.strip():
+                # Fallback to first column value if header differs
+                vals = list(row.values())
+                if vals and vals[0] and vals[0].strip():
+                    prompt = vals[0].strip()
+                else:
+                    continue
+
+            all_cases.append(
+                CreateTestCaseRequest(
+                    external_case_ref=f"benign_{idx}",
+                    category="BENIGN_CALIBRATION",
+                    subcategory="BENIGN_BASELINE",
+                    prompt_template=prompt.strip(),
+                    mode=TestCaseMode.SINGLE,
+                    owasp_ids=[],
+                    severity_ceiling=SeverityLevel.NONE,
+                    review_status=ReviewStatus.APPROVED,
+                    language="en",
+                    metadata_payload={"dataset": "benign"},
+                )
+            )
+
+    result = service.ingest_test_cases(source.id, all_cases)
+    logger.info(f"Benign Seeding Complete: Ingested {result.ingested_count}, skipped {result.duplicate_count} duplicates.")
+    return result.ingested_count
+
+
 def seed_all_benchmarks(db: Session) -> dict:
     """Master seeding entrypoint."""
     datasets_dir = find_datasets_dir()
@@ -255,12 +313,14 @@ def seed_all_benchmarks(db: Session) -> dict:
     finred_count = seed_finred_dataset(service, datasets_dir)
     advbench_count = seed_advbench_dataset(service, datasets_dir)
     harmbench_count = seed_harmbench_dataset(service, datasets_dir)
+    benign_count = seed_benign_dataset(service, datasets_dir)
 
     return {
         "finred_cases": finred_count,
         "advbench_cases": advbench_count,
         "harmbench_cases": harmbench_count,
-        "total_ingested": finred_count + advbench_count + harmbench_count,
+        "benign_cases": benign_count,
+        "total_ingested": finred_count + advbench_count + harmbench_count + benign_count,
     }
 
 

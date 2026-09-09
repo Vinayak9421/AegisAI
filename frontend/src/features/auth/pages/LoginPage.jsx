@@ -38,10 +38,11 @@ export default function LoginPage() {
 
     setSubmitting(true);
     try {
-      const user = await login(email, password);
-      toast.success(`Welcome back, ${user.email}!`);
+      const res = await login(email, password);
+      const user = res?.user || res;
+      toast.success(`Welcome back, ${user?.email || email}!`);
 
-      if (user.role === 'ADMIN') {
+      if (user?.role === 'ADMIN') {
         navigate('/admin/overview');
       } else {
         navigate('/user/dashboard');
