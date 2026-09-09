@@ -154,3 +154,25 @@ def test_target_credential_management_and_revocation(client: TestClient, sample_
     assert revoke_res.status_code == 200
     assert revoke_res.json()["data"]["status"] == "REVOKED"
     assert revoke_res.json()["data"]["revoked_at"] is not None
+
+
+def test_create_local_hf_target_persists_endpoint(client: TestClient, sample_tenant: models.Tenant):
+    target_payload = {
+        "name": f"Local HF Bot-{uuid.uuid4().hex[:6]}",
+        "mode": "LOCAL_HF",
+        "model_ref": "small_instruct_local_v1",
+        "endpoint_url": "http://127.0.0.1:8001/chat",
+        "authorization_confirmed": True,
+    }
+
+    response = client.post(
+        "/api/v1/targets",
+        json=target_payload,
+        headers={"X-Tenant-ID": str(sample_tenant.id)},
+    )
+    assert response.status_code == 201
+    data = response.json()["data"]
+    assert data["name"] == target_payload["name"]
+    assert data["mode"] == "LOCAL_HF"
+    assert data["model_ref"] == "small_instruct_local_v1"
+    assert data["endpoint_url"] == "http://127.0.0.1:8001/chat"

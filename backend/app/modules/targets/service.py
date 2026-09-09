@@ -62,9 +62,9 @@ class TargetService(BaseService):
             raise ConflictError(f"Target with name '{request.name}' already exists in this tenant")
 
         canonical_url = None
-        if request.mode == TargetMode.HOSTED:
+        if request.mode in (TargetMode.HOSTED, TargetMode.LOCAL_HF):
             if not request.endpoint_url:
-                raise ValidationError("endpoint_url is required for HOSTED mode")
+                raise ValidationError(f"endpoint_url is required for {request.mode.name} mode")
             canonical_url, _ = validate_target_url(request.endpoint_url)
 
         target_id = uuid.uuid4()

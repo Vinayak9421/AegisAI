@@ -2,6 +2,7 @@
 
 from typing import Optional
 from app.connectors.hosted import HostedConnector
+from app.connectors.local_hf import LocalHFConnector
 from app.core.errors import ValidationError
 from app.db.models.target import Target
 from app.domain.contracts import TargetConnectorPort
@@ -23,7 +24,15 @@ class ConnectorFactory:
                 connector_profile_name=getattr(target, "connector_profile", "aegis_simple_chat_v1"),
             )
         elif target.mode == TargetMode.LOCAL_HF:
-            raise ValidationError("LOCAL_HF mode connector will be enabled in a later phase")
+            if not target.endpoint_url:
+                raise ValidationError("LOCAL_HF target must have endpoint_url specified")
+            if not target.model_ref:
+                raise ValidationError("LOCAL_HF target must have model_ref specified")
+            return LocalHFConnector(
+                endpoint_url=target.endpoint_url,
+                model_ref=target.model_ref,
+                decrypted_credential=decrypted_credential,
+            )
         elif target.mode == TargetMode.AGENT:
             raise ValidationError("AGENT mode connector will be enabled in a later phase")
         else:
