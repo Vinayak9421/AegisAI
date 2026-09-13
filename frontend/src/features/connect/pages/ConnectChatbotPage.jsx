@@ -69,15 +69,22 @@ export default function ConnectChatbotPage() {
     } else if (preset === 'openai') {
       setTargetName('OpenAI ChatGPT');
       setApiUrl('https://api.openai.com/v1/chat/completions');
-      setAuthHeaderKind('BEARER_TOKEN');
+      setAuthHeaderKind('API_KEY');
       setConnectorProfile('openai_chat_v1');
       setModelName('gpt-4o-mini');
       toast('Applied OpenAI ChatGPT preset', { icon: '🤖' });
+    } else if (preset === 'huggingface') {
+      setTargetName('Qwen-2.5-72B (HuggingFace)');
+      setApiUrl('https://router.huggingface.co/v1/chat/completions');
+      setAuthHeaderKind('API_KEY');
+      setConnectorProfile('openai_chat_v1');
+      setModelName('Qwen/Qwen2.5-72B-Instruct');
+      toast('Applied Hugging Face Qwen-2.5 preset', { icon: '🤗' });
     }
   };
 
   const buildTargetPayload = () => {
-    const isOAI = connectorProfile === 'openai_chat_v1' || apiUrl.includes('chat/completions') || apiUrl.includes('generativelanguage') || apiUrl.includes('openai');
+    const isOAI = connectorProfile === 'openai_chat_v1' || apiUrl.includes('chat/completions') || apiUrl.includes('generativelanguage') || apiUrl.includes('openai') || apiUrl.includes('huggingface');
     return {
       name: targetName || 'Target Chatbot',
       mode: 'HOSTED',
@@ -88,7 +95,7 @@ export default function ConnectChatbotPage() {
       authorization_reference: 'team-authorized-pilot-target',
       side_effect_free: true,
       credential_payload: apiKey || undefined,
-      credential_kind: authHeaderKind === 'BEARER_TOKEN' ? 'BEARER_TOKEN' : 'API_KEY',
+      credential_kind: authHeaderKind === 'CUSTOM_HEADER' ? 'CUSTOM_HEADER' : authHeaderKind === 'OAUTH' ? 'OAUTH' : 'API_KEY',
     };
   };
 
@@ -105,10 +112,25 @@ export default function ConnectChatbotPage() {
       try {
         target = await targetService.createTarget(payload);
       } catch (err) {
-        // If target exists or returns conflict, fetch target list
+        // If target exists or returns conflict, update it with new settings
         const targets = await targetService.listTargets();
-        target = targets.find((t) => t.endpoint_url === apiUrl || t.name === payload.name);
-        if (!target) throw err;
+        const existing = targets.find((t) => t.name === payload.name || t.endpoint_url === apiUrl);
+        if (!existing) throw err;
+
+        target = await targetService.updateTarget(existing.id, {
+          name: payload.name,
+          endpoint_url: payload.endpoint_url,
+          model_ref: payload.model_ref,
+          connector_profile: payload.connector_profile,
+        });
+
+        if (payload.credential_payload) {
+          try {
+            await targetService.addCredential(existing.id, payload.credential_payload);
+          } catch (cErr) {
+            console.warn('Could not update credential:', cErr);
+          }
+        }
       }
 
       // Automatically verify target connectivity
@@ -144,8 +166,23 @@ export default function ConnectChatbotPage() {
           target = await targetService.createTarget(payload);
         } catch (err) {
           const targets = await targetService.listTargets();
-          target = targets.find((t) => t.endpoint_url === apiUrl || t.name === payload.name);
-          if (!target) throw err;
+          const existing = targets.find((t) => t.name === payload.name || t.endpoint_url === apiUrl);
+          if (!existing) throw err;
+
+          target = await targetService.updateTarget(existing.id, {
+            name: payload.name,
+            endpoint_url: payload.endpoint_url,
+            model_ref: payload.model_ref,
+            connector_profile: payload.connector_profile,
+          });
+
+          if (payload.credential_payload) {
+            try {
+              await targetService.addCredential(existing.id, payload.credential_payload);
+            } catch (cErr) {
+              console.warn('Could not update credential:', cErr);
+            }
+          }
         }
       }
 
@@ -256,7 +293,18 @@ export default function ConnectChatbotPage() {
                 <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                   Quick Presets
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => applyPreset('huggingface')}
+                    className={`py-1.5 px-2 text-xs font-semibold rounded-xl border transition-all flex items-center justify-center gap-1.5 ${apiUrl.includes('huggingface')
+                      ? 'bg-sky-50 border-sky-300 text-[#0e61a1] shadow-2xs font-bold'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                      }`}
+                  >
+                    <span>🤗</span>
+                    <span>Hugging Face</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => applyPreset('gemini')}

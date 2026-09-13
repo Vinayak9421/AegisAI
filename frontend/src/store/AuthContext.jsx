@@ -30,13 +30,19 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const register = async (payload) => {
+  const register = async (emailOrPayload, maybePassword, maybeOrg) => {
     setLoading(true);
     try {
+      const payload =
+        typeof emailOrPayload === 'object' && emailOrPayload !== null
+          ? emailOrPayload
+          : { email: emailOrPayload, password: maybePassword, organization_name: maybeOrg };
+
       const data = await authService.register(payload);
-      setUser(data.user);
+      const userObj = data.user || data;
+      setUser(userObj);
       setToken(data.access_token);
-      return data;
+      return userObj;
     } finally {
       setLoading(false);
     }

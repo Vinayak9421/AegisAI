@@ -60,11 +60,12 @@ class OpenAIChatProfile(BaseConnectorProfile):
             choices = response_json.get("choices")
             if choices and isinstance(choices, list) and len(choices) > 0:
                 first_choice = choices[0]
-                content = first_choice.get("message", {}).get("content", "")
-                finish_reason = first_choice.get("finish_reason")
+                msg = first_choice.get("message", {}) if isinstance(first_choice, dict) else {}
+                content = msg.get("content") or msg.get("reasoning_content") or ""
+                finish_reason = first_choice.get("finish_reason") if isinstance(first_choice, dict) else None
                 usage = response_json.get("usage", {})
                 return NormalizedTargetResponse(
-                    text=str(content).strip(),
+                    text=str(content or "").strip(),
                     raw_json=response_json,
                     finish_reason=finish_reason,
                     usage_metadata=usage if isinstance(usage, dict) else {},

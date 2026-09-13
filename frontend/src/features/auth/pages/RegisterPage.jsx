@@ -36,10 +36,14 @@ export default function RegisterPage() {
 
     setSubmitting(true);
     try {
-      const user = await register(email, password, 'USER');
+      const user = await register({
+        email: email.trim(),
+        password,
+        organization_name: organization.trim() || undefined,
+      });
       toast.success('Registration successful! Welcome to Aegis.');
 
-      if (user.role === 'ADMIN') {
+      if (user && user.role === 'ADMIN') {
         navigate('/admin/overview');
       } else {
         navigate('/user/dashboard');

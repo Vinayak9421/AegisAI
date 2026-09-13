@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import StatusBadge from './StatusBadge';
 
 const rowVariants = {
@@ -30,6 +31,8 @@ function TrustScoreBar({ score }) {
 }
 
 export default function EvaluationTable({ evaluations = [] }) {
+  const navigate = useNavigate();
+
   return (
     <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden text-slate-800">
       {/* Table Header */}
@@ -83,7 +86,7 @@ export default function EvaluationTable({ evaluations = [] }) {
                     className={`hover:bg-slate-50/80 transition-colors ${row.status === 'critical' ? 'bg-rose-50/30' : ''}`}
                   >
                     <td className="p-4">
-                      <div className="font-bold text-slate-900">{row.client}</div>
+                      <div className="font-bold text-slate-900 hover:text-[#0e61a1] cursor-pointer" onClick={() => navigate(`/report/${row.id}`)}>{row.client}</div>
                       <div className="text-[11px] text-slate-500">{row.project}</div>
                     </td>
                     <td className="p-4 text-slate-600 font-mono text-[11px]">{row.model}</td>
@@ -91,9 +94,23 @@ export default function EvaluationTable({ evaluations = [] }) {
                     <td className="p-4"><StatusBadge status={row.status} /></td>
                     <td className="p-4 text-slate-500">{row.lastRun}</td>
                     <td className="p-4 text-right">
-                      <button className="p-1 text-slate-400 hover:text-slate-700 transition-colors">
-                        <span className="material-symbols-outlined text-base">more_vert</span>
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => navigate(`/report/${row.id}`)}
+                          className="px-2.5 py-1.5 bg-sky-50 hover:bg-sky-100 text-[#0e61a1] border border-sky-200 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs hover:shadow-xs"
+                          title="View Trust & Safety Certificate Report"
+                        >
+                          <span className="material-symbols-outlined text-[15px]">verified</span>
+                          View Report
+                        </button>
+                        <button
+                          onClick={() => navigate('/simulation')}
+                          className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                          title="View Live Simulation"
+                        >
+                          <span className="material-symbols-outlined text-base">play_circle</span>
+                        </button>
+                      </div>
                     </td>
                   </motion.tr>
                 ))

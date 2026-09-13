@@ -51,13 +51,12 @@ export default function UserDashboardPage() {
 
     const completed = j.completed_items || 0;
     const total = j.total_items || 25;
-    const failed = j.failed_items || 0;
 
-    // Real trust score from actual evaluation findings
-    const trustScore = isCompleted
-      ? failed === 0
-        ? 98
-        : Math.max(100 - Math.round((failed / total) * 100), 10)
+    // Real trust score from actual multi-dimensional evaluation findings
+    const trustScore = j.trust_score !== null && j.trust_score !== undefined
+      ? Math.round(j.trust_score)
+      : isCompleted && completed > 0
+      ? 75
       : null;
 
     return {

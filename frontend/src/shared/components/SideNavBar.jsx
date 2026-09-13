@@ -21,13 +21,14 @@ export default function SideNavBar({ collapsed, onToggleCollapse, mobileOpen, on
         { label: 'Overview', icon: 'dashboard', to: '/admin/overview' },
         { label: 'Threat Benchmarks', icon: 'biotech', to: '/admin/test-suites' },
         { label: 'Live Simulation', icon: 'bug_report', to: '/simulation' },
+        { label: 'Safety Reports', icon: 'verified', to: '/report/latest' },
         { label: 'Connect Target', icon: 'add_link', to: '/connect' },
       ]
     : [
         { label: 'Dashboard', icon: 'dashboard', to: '/user/dashboard' },
         { label: 'Connect Bot', icon: 'add_link', to: '/connect' },
         { label: 'Live Simulation', icon: 'bug_report', to: '/simulation' },
-        { label: 'Safety Reports', icon: 'verified', to: '/report/AEGIS-77X-992' },
+        { label: 'Safety Reports', icon: 'verified', to: '/report/latest' },
       ];
 
   const sidebarContent = (

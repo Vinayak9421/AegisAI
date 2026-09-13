@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import AppLayout from '../../../shared/components/AppLayout';
 import MessageBubble from '../components/MessageBubble';
 import HarmRateMeter from '../components/HarmRateMeter';
@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 
 export default function LiveSimulationPage() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const jobId = searchParams.get('jobId');
 
   const [job, setJob] = useState(null);
@@ -18,34 +19,59 @@ export default function LiveSimulationPage() {
   const [running, setRunning] = useState(false);
 
   useEffect(() => {
+    let intervalId = null;
+
     async function loadJobData() {
-      if (!jobId) {
-        // Find most recent job if no param supplied
+      const activeJobId = jobId || (job ? job.id : null);
+      let targetId = activeJobId;
+
+      if (!targetId) {
         try {
           const jobs = await jobService.listJobs({ limit: 1 });
           if (jobs && jobs.length > 0) {
+            targetId = jobs[0].id;
             setJob(jobs[0]);
-            loadResults(jobs[0].id);
           }
         } catch {
           // ignore error
         }
-        return;
       }
 
+      if (!targetId) return;
+
       try {
-        setLoading(true);
-        const j = await jobService.getJob(jobId);
-        setJob(j);
-        await loadResults(jobId);
+        const [j, res] = await Promise.all([
+          jobService.getJob(targetId),
+          jobService.getJobResults(targetId),
+        ]);
+        if (j) {
+          setJob(j);
+          if (j.state === 'RUNNING') {
+            setRunning(true);
+          } else if (['COMPLETED', 'FAILED', 'CANCELLED'].includes(j.state)) {
+            setRunning(false);
+            if (intervalId) clearInterval(intervalId);
+          }
+        }
+        if (res && res.length > 0) {
+          setResults(res);
+        }
       } catch (err) {
-        toast.error('Could not load job details: ' + err.message);
+        console.warn('Poll error in LiveSimulation:', err);
       } finally {
         setLoading(false);
       }
     }
 
+    setLoading(true);
     loadJobData();
+
+    // Poll every 2.5 seconds while simulation runs
+    intervalId = setInterval(loadJobData, 2500);
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
   }, [jobId]);
 
   const loadResults = async (id) => {
@@ -164,6 +190,16 @@ export default function LiveSimulationPage() {
             </div>
 
             <div className="flex items-center gap-3">
+              {job?.state === 'COMPLETED' && (
+                <button
+                  onClick={() => navigate(`/report/${job.id}`)}
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all animate-pulse"
+                >
+                  <span className="material-symbols-outlined text-sm">verified</span>
+                  View Safety Certificate & Report
+                </button>
+              )}
+
               {job && job.state !== 'COMPLETED' && (
                 <button
                   onClick={handleRunJob}
@@ -226,6 +262,38 @@ export default function LiveSimulationPage() {
               displayMessages.map((msg, i) => (
                 <MessageBubble key={msg.id || i} message={msg} index={i} />
               ))
+            )}
+
+            {job?.state === 'COMPLETED' && (
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-5 bg-gradient-to-r from-sky-50 via-indigo-50/50 to-emerald-50 border border-emerald-300 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-md">
+                    <span className="material-symbols-outlined text-2xl">verified</span>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                      Adversarial Evaluation Run Completed!
+                      <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-extrabold rounded-full uppercase tracking-wider">
+                        Ready
+                      </span>
+                    </h4>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      Target model evaluated across {job.completed_items || results.length} threat vectors. The full cryptographic Trust & Safety report with pillar metrics is ready.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => navigate(`/report/${job.id}`)}
+                  className="px-4 py-2.5 bg-[#0e61a1] hover:bg-[#0b4e82] text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-sm transition-all whitespace-nowrap"
+                >
+                  <span className="material-symbols-outlined text-base">assessment</span>
+                  Open Full Safety Report & Certificate
+                </button>
+              </motion.div>
             )}
 
             {running && (

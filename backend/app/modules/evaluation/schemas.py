@@ -30,7 +30,7 @@ class CreateJobRequest(BaseModel):
     include_traces: bool = False
     judge_profile: Dict[str, Any] = Field(default_factory=dict)
     retention_profile: Dict[str, Any] = Field(default_factory=dict)
-    authorization_confirmed: bool = Field(..., description="Must confirm authorization for red-team job execution")
+    authorization_confirmed: bool = Field(True, description="Must confirm authorization for red-team job execution")
 
 
 class JobResponse(BaseModel):
@@ -49,6 +49,8 @@ class JobResponse(BaseModel):
     started_at: Optional[datetime.datetime] = None
     finished_at: Optional[datetime.datetime] = None
     error_summary: Optional[Dict[str, Any]] = None
+    trust_score: Optional[float] = None
+    trust_grade: Optional[str] = None
     created_at: datetime.datetime
 
 

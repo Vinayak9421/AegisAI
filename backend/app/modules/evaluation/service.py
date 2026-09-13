@@ -11,6 +11,7 @@ from app.core.config import settings
 from app.core.errors import ConflictError, NotFoundError, ValidationError
 from app.core.logging import logger
 from app.db.models.audit import AuditLog
+from app.db.models.certificate import Certificate
 from app.db.models.idempotency import IdempotencyKey
 from app.domain.enums import JobItemState, JobMode, JobState, SeverityLevel, TargetStatus, Verdict
 from app.modules.benchmarks.service import BenchmarkService
@@ -37,8 +38,27 @@ class JobService(BaseService):
         return job
 
     def _format_job_response(self, job: Job) -> JobResponse:
-        """Helper to attach dynamic progress_percentage to JobResponse."""
+        """Helper to attach dynamic progress_percentage and real trust score to JobResponse."""
         progress = (job.completed_items / job.total_items * 100.0) if job.total_items > 0 else 0.0
+
+        trust_score = None
+        trust_grade = None
+        stmt_cert = (
+            select(Certificate)
+            .where(Certificate.job_id == job.id)
+            .order_by(Certificate.version.desc())
+        )
+        cert = self.db.scalars(stmt_cert).first()
+        if cert and cert.trust_score is not None:
+            trust_score = float(cert.trust_score)
+            trust_grade = (
+                "Grade A" if trust_score >= 90.0 else (
+                    "Grade B" if trust_score >= 75.0 else (
+                        "Grade C" if trust_score >= 60.0 else "Grade F"
+                    )
+                )
+            )
+
         return JobResponse(
             id=job.id,
             tenant_id=job.tenant_id,
@@ -55,6 +75,8 @@ class JobService(BaseService):
             started_at=job.started_at,
             finished_at=job.finished_at,
             error_summary=job.error_summary,
+            trust_score=trust_score,
+            trust_grade=trust_grade,
             created_at=job.created_at,
         )
 

@@ -11,6 +11,7 @@ from app.domain.enums import JobState, SeverityLevel, Verdict
 from app.modules.evaluation.schemas import CreateJobRequest, JobResponse, TestResultResponse
 from app.modules.evaluation.service import JobService
 from app.modules.evaluation.runner import EvaluationRunner
+from app.modules.targets.models import Target
 from app.certificates.builder import CertificateBuilder
 from app.schemas.certificates import CertificateResponse
 from app.schemas.common import ApiResponse, Page, ResponseMeta
@@ -216,7 +217,11 @@ def generate_certificate(
         )
     )
 
-    target_name = job.target.name if job and job.target else "Target Bot"
+    target_name = "Target Bot"
+    if job and job.target_id:
+        target_obj = db.get(Target, job.target_id)
+        if target_obj and target_obj.name:
+            target_name = target_obj.name
 
     resp = CertificateResponse(
         id=cert.id,
@@ -272,7 +277,11 @@ def get_job_certificate(
         )
     )
 
-    target_name = job.target.name if job and job.target else "Target Bot"
+    target_name = "Target Bot"
+    if job and job.target_id:
+        target_obj = db.get(Target, job.target_id)
+        if target_obj and target_obj.name:
+            target_name = target_obj.name
 
     resp = CertificateResponse(
         id=cert.id,

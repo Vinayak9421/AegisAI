@@ -28,6 +28,20 @@ export const targetService = {
   },
 
   /**
+   * Update existing target configuration.
+   */
+  async updateTarget(targetId, patchPayload) {
+    return apiClient.patch(`/targets/${targetId}`, patchPayload);
+  },
+
+  /**
+   * Add / update target credential.
+   */
+  async addCredential(targetId, secret, kind = 'API_KEY') {
+    return apiClient.post(`/targets/${targetId}/credentials`, { secret, kind });
+  },
+
+  /**
    * Run connection and health verification probe on target.
    */
   async verifyTarget(targetId) {

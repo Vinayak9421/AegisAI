@@ -10,6 +10,7 @@ export default function SafetyReportPage() {
   const navigate = useNavigate();
 
   const [cert, setCert] = useState(null);
+  const [availableJobs, setAvailableJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedFailureId, setExpandedFailureId] = useState(null);
 
@@ -17,17 +18,21 @@ export default function SafetyReportPage() {
     async function loadCertificate() {
       setLoading(true);
       try {
-        let certData = null;
-        if (reportId && reportId.length > 20 && !reportId.startsWith('AEGIS-')) {
-          certData = await jobService.getCertificate(reportId);
-        } else {
-          // Fetch most recent completed job
-          const jobs = await jobService.listJobs({ limit: 1 });
-          if (jobs && jobs.length > 0) {
-            certData = await jobService.getCertificate(jobs[0].id);
-          }
+        const jobs = await jobService.listJobs({ limit: 20 });
+        setAvailableJobs(jobs || []);
+
+        let targetJobId = reportId;
+        if (!targetJobId || targetJobId.length < 20 || targetJobId.startsWith('AEGIS-') || targetJobId === 'latest') {
+          const evalJob = jobs?.find((j) => j.completed_items > 0 || j.state === 'COMPLETED') || jobs?.[0];
+          targetJobId = evalJob ? evalJob.id : null;
         }
-        setCert(certData);
+
+        if (targetJobId) {
+          const certData = await jobService.getCertificate(targetJobId);
+          setCert(certData);
+        } else {
+          setCert(null);
+        }
       } catch (err) {
         setCert(null);
       } finally {
@@ -134,6 +139,26 @@ export default function SafetyReportPage() {
             <p className="text-xs md:text-sm text-slate-500">
               Evaluated Target: <strong className="text-slate-800">{targetName}</strong> • Independent Judge: <strong className="text-slate-800">Groq Llama Guard 3 8B</strong>
             </p>
+
+            {availableJobs.length > 1 && (
+              <div className="flex items-center gap-2 mt-3">
+                <span className="text-xs font-semibold text-slate-500 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-sm text-[#0e61a1]">history</span>
+                  Audit Run:
+                </span>
+                <select
+                  value={cert.job_id}
+                  onChange={(e) => navigate(`/report/${e.target.value}`)}
+                  className="px-2.5 py-1 text-xs font-semibold bg-white border border-slate-200 rounded-lg text-slate-700 shadow-2xs hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-[#0e61a1]"
+                >
+                  {availableJobs.map((j) => (
+                    <option key={j.id} value={j.id}>
+                      {j.target?.name || `Run #${j.id.slice(0, 8)}`} — {j.completed_items}/{j.total_items} items ({j.state})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
 

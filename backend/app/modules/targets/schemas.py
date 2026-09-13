@@ -46,10 +46,25 @@ class CreateTargetRequest(BaseModel):
                     data["mode"] = TargetMode.HOSTED
             if "credential_value" in data and "credential_payload" not in data:
                 data["credential_payload"] = data["credential_value"]
-            if "auth_header_kind" in data and "credential_kind" not in data:
-                raw_kind = str(data["auth_header_kind"]).upper()
+            if "credential_kind" in data and data["credential_kind"] is not None:
+                raw_kind = str(data["credential_kind"]).upper()
                 if "BEARER" in raw_kind:
-                    data["credential_kind"] = CredentialKind.BEARER_TOKEN
+                    data["credential_kind"] = CredentialKind.API_KEY
+                elif "CUSTOM" in raw_kind:
+                    data["credential_kind"] = CredentialKind.CUSTOM_HEADER
+                elif "OAUTH" in raw_kind:
+                    data["credential_kind"] = CredentialKind.OAUTH
+                elif "AGENT" in raw_kind:
+                    data["credential_kind"] = CredentialKind.AGENT_TOKEN
+
+            if "auth_header_kind" in data and ("credential_kind" not in data or data["credential_kind"] is None):
+                raw_kind = str(data["auth_header_kind"]).upper()
+                if "CUSTOM" in raw_kind:
+                    data["credential_kind"] = CredentialKind.CUSTOM_HEADER
+                elif "OAUTH" in raw_kind:
+                    data["credential_kind"] = CredentialKind.OAUTH
+                elif "AGENT" in raw_kind:
+                    data["credential_kind"] = CredentialKind.AGENT_TOKEN
                 else:
                     data["credential_kind"] = CredentialKind.API_KEY
         return data

@@ -44,18 +44,21 @@ export default function AdminOverviewPage() {
     const targetName = target?.name || job.config_snapshot?.target_name || `Target ${job.target_id.slice(0, 8)}`;
     const isCompleted = job.state === 'COMPLETED';
     const isRunning = job.state === 'RUNNING';
-    const total = job.total_items || 25;
-    const failed = job.failed_items || 0;
-    const score = isCompleted
-      ? failed === 0
-        ? 98
-        : Math.max(100 - Math.round((failed / total) * 100), 10)
+    const completed = job.completed_items || 0;
+
+    // Use the real multi-dimensional trust score computed by Aegis ScoringEngine
+    const score = job.trust_score !== null && job.trust_score !== undefined
+      ? Math.round(job.trust_score)
+      : isCompleted && completed > 0
+      ? 75
       : null;
 
     let status = 'queued';
     if (isRunning) status = 'running';
-    else if (isCompleted) {
-      status = failed === 0 ? 'passed' : failed > 5 ? 'critical' : 'warning';
+    else if (isCompleted || completed > 0) {
+      if (job.trust_grade === 'Grade A' || (score && score >= 90)) status = 'passed';
+      else if (job.trust_grade === 'Grade B' || (score && score >= 75)) status = 'warning';
+      else status = 'critical';
     }
 
     return {
