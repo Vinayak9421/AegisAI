@@ -2,8 +2,10 @@ import { useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 
 export default function GaugeCard({ title, score, color = '#0e61a1', delay = 0 }) {
+  const hasScore = score !== null && score !== undefined;
+  const numericScore = hasScore ? Math.min(Math.max(score, 0), 100) : 0;
   const circumference = 2 * Math.PI * 40; // r=40
-  const offset = circumference - (score / 100) * circumference;
+  const offset = hasScore ? circumference - (numericScore / 100) * circumference : circumference;
 
   return (
     <motion.div
@@ -27,7 +29,7 @@ export default function GaugeCard({ title, score, color = '#0e61a1', delay = 0 }
           <motion.circle
             cx="50" cy="50" r="40"
             fill="none"
-            stroke={color}
+            stroke={hasScore ? color : '#cbd5e1'}
             strokeWidth="8"
             strokeLinecap="round"
             strokeDasharray={circumference}
@@ -41,13 +43,16 @@ export default function GaugeCard({ title, score, color = '#0e61a1', delay = 0 }
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: delay + 0.5 }}
-            className="text-headline-md font-bold text-primary"
+            className={`text-headline-md font-bold ${hasScore ? 'text-primary' : 'text-slate-400'}`}
           >
-            {score}
+            {hasScore ? `${numericScore}%` : '--'}
           </motion.span>
-          <span className="text-label-md text-on-surface-variant">/100</span>
+          <span className="text-label-md text-on-surface-variant">
+            {hasScore ? '/100' : 'Pending Audit'}
+          </span>
         </div>
       </div>
     </motion.div>
   );
 }
+

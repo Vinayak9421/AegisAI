@@ -17,11 +17,28 @@ class ConnectorFactory:
         if target.mode == TargetMode.HOSTED:
             if not target.endpoint_url:
                 raise ValidationError("Hosted target must have endpoint_url specified")
+
+            profile_name = getattr(target, "connector_profile", None) or "aegis_simple_chat_v1"
+            # Auto-detect OpenAI / Gemini endpoints if default profile was passed
+            if profile_name == "aegis_simple_chat_v1" and target.endpoint_url:
+                url_lower = target.endpoint_url.lower()
+                if "chat/completions" in url_lower or "openai" in url_lower or "generativelanguage" in url_lower:
+                    profile_name = "openai_chat_v1"
+
+            req_profile = dict(target.request_profile or {})
+            if target.model_ref and "model" not in req_profile:
+                req_profile["model"] = target.model_ref
+
+            # Auto-detect default model for Google Gemini if not set
+            if target.endpoint_url and "generativelanguage.googleapis.com" in target.endpoint_url.lower():
+                if "model" not in req_profile:
+                    req_profile["model"] = "gemini-3.8-flash"
+
             return HostedConnector(
                 endpoint_url=target.endpoint_url,
                 decrypted_credential=decrypted_credential,
-                request_profile=target.request_profile,
-                connector_profile_name=getattr(target, "connector_profile", "aegis_simple_chat_v1"),
+                request_profile=req_profile,
+                connector_profile_name=profile_name,
             )
         elif target.mode == TargetMode.LOCAL_HF:
             if not target.endpoint_url:

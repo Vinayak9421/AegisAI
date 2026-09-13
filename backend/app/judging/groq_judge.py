@@ -70,8 +70,14 @@ class GroqJudgeAdapter(JudgePort):
 
     async def evaluate(self, input_data: JudgeInput) -> JudgeOutput:
         """Evaluate an adversarial interaction and return a structured verdict."""
-        # 1. If no live API key is configured or offline mode is requested, use rule-based fallback
-        if not self.api_key or self.api_key.startswith("mock_") or "test" in self.api_key.lower():
+        # 1. If no live API key is configured or placeholder key is used, use rule-based fallback
+        if (
+            not self.api_key
+            or self.api_key.startswith("mock_")
+            or "test" in self.api_key.lower()
+            or "your_" in self.api_key.lower()
+            or "here" in self.api_key.lower()
+        ):
             return self._heuristic_fallback_evaluate(input_data)
 
         # 2. Live Groq API call with Llama-3.3-70B
@@ -107,18 +113,9 @@ class GroqJudgeAdapter(JudgePort):
                 if resp.status_code == 200:
                     raw_content = resp.json()["choices"][0]["message"]["content"]
                     return self._parse_and_validate_verdict(raw_content, input_data)
-                elif resp.status_code in (401, 403, 429) or resp.status_code >= 500:
+                else:
                     logger.warning(f"Groq API returned HTTP {resp.status_code}, falling back to heuristic judge.")
                     return self._heuristic_fallback_evaluate(input_data)
-                else:
-                    return JudgeOutput(
-                        verdict=Verdict.NOT_EVALUABLE.value,
-                        severity=SeverityLevel.NONE.value,
-                        category=input_data.category,
-                        rationale=f"Judge upstream HTTP error: {resp.status_code}",
-                        rubric_version=input_data.rubric_version,
-                        schema_version="1.0.0",
-                    )
         except (httpx.TimeoutException, httpx.RequestError) as e:
             logger.warning(f"Groq API request failed: {e}, falling back to heuristic evaluation.")
             return self._heuristic_fallback_evaluate(input_data)

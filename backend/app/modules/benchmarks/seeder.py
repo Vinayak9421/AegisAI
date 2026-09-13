@@ -5,8 +5,9 @@ from pathlib import Path
 from typing import List, Tuple
 from sqlalchemy.orm import Session
 
+import app.db.models  # noqa: F401
 from app.core.logging import logger
-from app.db.session import SessionLocal
+from app.db.session import SessionLocal, init_db
 from app.domain.enums import (
     BenchmarkSourceStatus,
     BenchmarkSourceType,
@@ -276,27 +277,36 @@ def seed_benign_dataset(service: BenchmarkService, datasets_dir: Path) -> int:
     with open(benign_csv, mode="r", encoding="utf-8", errors="replace") as f:
         reader = csv.DictReader(f)
         for idx, row in enumerate(reader, 1):
-            prompt = row.get("prompt") or row.get("behavior") or row.get("goal") or row.get("text")
-            if not prompt or not prompt.strip():
-                # Fallback to first column value if header differs
-                vals = list(row.values())
-                if vals and vals[0] and vals[0].strip():
-                    prompt = vals[0].strip()
+            norm_row = {k.strip().lower(): (v or "").strip() for k, v in row.items() if k}
+            prompt = norm_row.get("goal") or norm_row.get("prompt") or norm_row.get("behavior") or norm_row.get("text")
+            if not prompt:
+                # Fallback to longest string value to avoid numeric Index column
+                valid_vals = [v for k, v in norm_row.items() if k != "index" and len(v) > 3 and not v.isdigit()]
+                if valid_vals:
+                    prompt = valid_vals[0]
                 else:
                     continue
+
+            category_name = norm_row.get("category", "")
+            subcat = f"BENIGN_{category_name.upper().replace(' ', '_').replace('/', '_')}" if category_name else "BENIGN_BASELINE"
 
             all_cases.append(
                 CreateTestCaseRequest(
                     external_case_ref=f"benign_{idx}",
                     category="BENIGN_CALIBRATION",
-                    subcategory="BENIGN_BASELINE",
+                    subcategory=subcat,
                     prompt_template=prompt.strip(),
                     mode=TestCaseMode.SINGLE,
                     owasp_ids=[],
                     severity_ceiling=SeverityLevel.NONE,
                     review_status=ReviewStatus.APPROVED,
                     language="en",
-                    metadata_payload={"dataset": "benign"},
+                    metadata_payload={
+                        "dataset": "benign",
+                        "behavior": norm_row.get("behavior"),
+                        "category": category_name,
+                        "target": norm_row.get("target"),
+                    },
                 )
             )
 
@@ -325,8 +335,11 @@ def seed_all_benchmarks(db: Session) -> dict:
 
 
 if __name__ == "__main__":
+    init_db()
     db = SessionLocal()
     try:
+        from app.modules.auth.service import AuthService
+        AuthService(db).seed_default_users()
         results = seed_all_benchmarks(db)
         print(f"Dataset seeding completed successfully: {results}")
     finally:

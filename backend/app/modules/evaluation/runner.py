@@ -1,5 +1,6 @@
 """Evaluation worker runner executing target dispatch, independent judging, and checkpoint persistence."""
 
+import asyncio
 import datetime
 import time
 from typing import Optional
@@ -274,8 +275,15 @@ class EvaluationRunner:
         )
         item_ids = list(self.db.scalars(stmt).all())
 
-        logger.info(f"Running evaluation execution loop for job {job_id} ({len(item_ids)} pending items)")
-        for i_id in item_ids:
+        target = job.target
+        rpm = target.rate_limit_requests_per_minute if target and target.rate_limit_requests_per_minute else 12
+        pacing_delay = round(60.0 / max(rpm, 1), 1)
+
+        logger.info(
+            f"Running evaluation execution loop for job {job_id} "
+            f"({len(item_ids)} pending items, target RPM: {rpm}, pacing delay: {pacing_delay}s)"
+        )
+        for idx, i_id in enumerate(item_ids):
             # Check if cancellation requested
             self.db.refresh(job)
             if job.cancel_requested_at:
@@ -283,6 +291,10 @@ class EvaluationRunner:
                 job.finished_at = datetime.datetime.now(datetime.timezone.utc)
                 self.db.commit()
                 break
+
+            # Sleep between requests to avoid exceeding target rate limits (e.g. Gemini 15 RPM)
+            if idx > 0 and pacing_delay > 0:
+                await asyncio.sleep(pacing_delay)
 
             await self.execute_item(i_id)
 

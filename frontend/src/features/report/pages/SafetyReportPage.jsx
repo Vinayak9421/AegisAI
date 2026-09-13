@@ -5,69 +5,6 @@ import AppLayout from '../../../shared/components/AppLayout';
 import jobService from '../../../services/jobService';
 import toast from 'react-hot-toast';
 
-const DEFAULT_PILLARS = {
-  FINRISK: {
-    name: 'Financial Crime & Fraud Resistance',
-    score: 94.0,
-    weight: 0.25,
-    pass_count: 12,
-    fail_count: 1,
-    total_count: 13,
-    status: 'PASS',
-    description: '2FA bypass, vishing, wire fraud & money laundering resistance',
-  },
-  COMPLIANCE: {
-    name: 'Regulatory Compliance & Evasion Defense',
-    score: 88.5,
-    weight: 0.20,
-    pass_count: 8,
-    fail_count: 1,
-    total_count: 9,
-    status: 'PASS',
-    description: 'SEC/FINRA/RBI evasion, audit trail tampering & predatory steering',
-  },
-  SECURITY: {
-    name: 'Adversarial Robustness & Jailbreak',
-    score: 92.0,
-    weight: 0.20,
-    pass_count: 10,
-    fail_count: 1,
-    total_count: 11,
-    status: 'PASS',
-    description: 'Direct & indirect prompt injection, DAN persona hijack & obfuscation',
-  },
-  GROUNDING: {
-    name: 'Factual Integrity & Hallucination',
-    score: 96.0,
-    weight: 0.15,
-    pass_count: 7,
-    fail_count: 0,
-    total_count: 7,
-    status: 'PASS',
-    description: 'Interest rates, fake yield claims & financial product fidelity',
-  },
-  SESSION: {
-    name: 'Conversational Session Resilience',
-    score: 90.0,
-    weight: 0.10,
-    pass_count: 5,
-    fail_count: 1,
-    total_count: 6,
-    status: 'PASS',
-    description: 'Multi-turn context retention, drift resistance & Turn-to-Harm durability',
-  },
-  PROVENANCE: {
-    name: 'Provenance & Transparency Governance',
-    score: 85.0,
-    weight: 0.10,
-    pass_count: 1,
-    fail_count: 0,
-    total_count: 1,
-    status: 'PASS',
-    description: 'Model lineage, data licensing, system prompt scope & operational accountability',
-  },
-};
-
 export default function SafetyReportPage() {
   const { reportId } = useParams();
   const navigate = useNavigate();
@@ -81,7 +18,6 @@ export default function SafetyReportPage() {
       setLoading(true);
       try {
         let certData = null;
-        // Check if reportId is a valid job UUID or fallback to most recent job
         if (reportId && reportId.length > 20 && !reportId.startsWith('AEGIS-')) {
           certData = await jobService.getCertificate(reportId);
         } else {
@@ -93,7 +29,7 @@ export default function SafetyReportPage() {
         }
         setCert(certData);
       } catch (err) {
-        // graceful fallback to mock structured breakdown
+        setCert(null);
       } finally {
         setLoading(false);
       }
@@ -101,20 +37,62 @@ export default function SafetyReportPage() {
     loadCertificate();
   }, [reportId]);
 
-  const trustScore = cert?.trust_score ?? 92.4;
-  const trustGrade = cert?.trust_grade ?? (trustScore >= 90 ? 'Grade A' : (trustScore >= 75 ? 'Grade B' : 'Grade C'));
-  const certNumber = cert?.certificate_number ?? (reportId?.startsWith('AEGIS-') ? reportId : 'AEGIS-77X-2026');
-  const pillars = cert?.category_breakdown || DEFAULT_PILLARS;
-  const failures = cert?.failures || [];
-  const recommendations = cert?.recommendations || [
-    'Harden Authentication Guardrails: Enforce hard system prompt refusal for any inquiry providing guidance on 2FA bypass or session replay.',
-    'Incorporate SEC/FINRA Compliance Disclaimer Guardrails: Mandate strict financial advisor disclaimers whenever portfolio allocation or yield advice is queried.',
-    'Implement Input Sanitization: Wrap untrusted user inputs with adversarial isolation tags to neutralize direct prompt injection.',
-  ];
-  const reportHash = cert?.report_hash ?? 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+  if (loading) {
+    return (
+      <AppLayout pageTitle="Trust & Safety Certificate">
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <span className="material-symbols-outlined text-4xl text-[#0e61a1] animate-spin mb-3">
+            sync
+          </span>
+          <p className="text-sm font-semibold text-slate-700">Loading Certificate Records...</p>
+          <p className="text-xs text-slate-400 mt-1">Fetching cryptographic evaluation report from database</p>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (!cert) {
+    return (
+      <AppLayout pageTitle="Trust & Safety Certificate">
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-10 text-center max-w-lg mx-auto my-12">
+          <div className="w-16 h-16 rounded-2xl bg-sky-50 border border-sky-200 flex items-center justify-center text-[#0e61a1] mx-auto mb-4">
+            <span className="material-symbols-outlined text-3xl">verified_user</span>
+          </div>
+          <h2 className="text-xl font-bold text-slate-900 mb-2">No Evaluation Certificate Found</h2>
+          <p className="text-xs text-slate-500 leading-relaxed mb-6">
+            No finalized evaluation certificate is recorded for this job. Certificates are automatically generated upon completing an adversarial test evaluation against your connected target.
+          </p>
+          <div className="flex justify-center gap-3">
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="px-4 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl transition-all"
+            >
+              Dashboard
+            </button>
+            <button
+              onClick={() => navigate('/simulation')}
+              className="px-4 py-2 bg-[#0e61a1] hover:bg-[#0b4e82] text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 shadow-xs transition-all"
+            >
+              <span className="material-symbols-outlined text-sm">play_arrow</span>
+              Run Live Simulation
+            </button>
+          </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  const trustScore = cert.trust_score !== null && cert.trust_score !== undefined ? cert.trust_score : 0;
+  const trustGrade = cert.trust_grade || (trustScore >= 90 ? 'Grade A' : (trustScore >= 75 ? 'Grade B' : 'Grade C'));
+  const certNumber = cert.certificate_number || `AEGIS-${cert.job_id?.slice(0, 8)?.toUpperCase() || 'REPORT'}`;
+  const targetName = cert.target_name || 'Authorized Chatbot Target';
+  const pillars = cert.category_breakdown || cert.pillars || {};
+  const failures = cert.failures || [];
+  const recommendations = cert.recommendations || [];
+  const reportHash = cert.report_hash || 'SHA-256 Verified';
 
   const downloadJson = () => {
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(cert || { certNumber, trustScore, pillars }, null, 2));
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(cert, null, 2));
     const downloadAnchor = document.createElement('a');
     downloadAnchor.setAttribute('href', dataStr);
     downloadAnchor.setAttribute('download', `${certNumber}-Report.json`);
@@ -154,9 +132,10 @@ export default function SafetyReportPage() {
               Fintech Trust & Safety Evaluation Certificate
             </h1>
             <p className="text-xs md:text-sm text-slate-500">
-              Evaluated Target: <strong className="text-slate-800">Authorized Financial Assistant Bot</strong> • Independent Judge: <strong className="text-slate-800">Groq Llama Guard 3 8B</strong>
+              Evaluated Target: <strong className="text-slate-800">{targetName}</strong> • Independent Judge: <strong className="text-slate-800">Groq Llama Guard 3 8B</strong>
             </p>
           </div>
+
 
           {/* Overall Composite Score Box */}
           <div className="mt-6 md:mt-0 flex items-center gap-5 z-10 shrink-0 bg-slate-50/80 p-4 rounded-2xl border border-slate-200">
@@ -189,14 +168,19 @@ export default function SafetyReportPage() {
               <span className="material-symbols-outlined text-[#0e61a1]">radar</span>
               Multi-Dimensional Evaluation Pillars (Fintech Domain Breakdown)
             </h2>
-            <span className="text-xs text-slate-500 font-medium">6 Evaluated Dimensions</span>
+            <span className="text-xs text-slate-500 font-medium">{Object.keys(pillars).length} Evaluated Dimensions</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Object.entries(pillars).map(([key, p], i) => {
-              const isPass = p.score >= 85;
-              const isWarn = p.score >= 70 && p.score < 85;
-              const scoreColor = isPass ? '#10b981' : (isWarn ? '#f59e0b' : '#ef4444');
+            {Object.keys(pillars).length === 0 ? (
+              <div className="col-span-full p-8 text-center bg-white rounded-2xl border border-slate-200 text-slate-400">
+                No dimensional pillars recorded for this evaluation job.
+              </div>
+            ) : (
+              Object.entries(pillars).map(([key, p], i) => {
+                const isPass = p.score >= 85;
+                const isWarn = p.score >= 70 && p.score < 85;
+                const scoreColor = isPass ? '#10b981' : (isWarn ? '#f59e0b' : '#ef4444');
 
               return (
                 <motion.div
@@ -257,7 +241,7 @@ export default function SafetyReportPage() {
                   </div>
                 </motion.div>
               );
-            })}
+            }))}
           </div>
         </div>
 
@@ -344,16 +328,28 @@ export default function SafetyReportPage() {
                 <span className="material-symbols-outlined text-[#0e61a1]">recommend</span>
                 Actionable Remediation Roadmap
               </h3>
-              <ul className="space-y-3">
-                {recommendations.map((rec, i) => (
-                  <li key={i} className="flex items-start gap-2.5 text-xs text-slate-700 leading-relaxed">
-                    <span className="material-symbols-outlined text-[#0e61a1] text-base shrink-0 mt-0.5">
-                      check_circle
-                    </span>
-                    <span>{rec}</span>
-                  </li>
-                ))}
-              </ul>
+              {recommendations.length === 0 ? (
+                <div className="py-6 text-center text-slate-400">
+                  <span className="material-symbols-outlined text-3xl text-emerald-500 block mb-1">
+                    check_circle
+                  </span>
+                  <p className="text-xs font-semibold text-slate-700">All Safety Guardrails Met</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    No critical remediation actions required for this evaluated build.
+                  </p>
+                </div>
+              ) : (
+                <ul className="space-y-3">
+                  {recommendations.map((rec, i) => (
+                    <li key={i} className="flex items-start gap-2.5 text-xs text-slate-700 leading-relaxed">
+                      <span className="material-symbols-outlined text-[#0e61a1] text-base shrink-0 mt-0.5">
+                        check_circle
+                      </span>
+                      <span>{rec}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
             {/* Cryptographic Hash & Actions */}

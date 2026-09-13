@@ -10,6 +10,7 @@ from app.domain.enums import CertificateStatus
 class CertificateResponse(BaseModel):
     id: uuid.UUID
     job_id: uuid.UUID
+    target_name: Optional[str] = None
     certificate_number: str
     status: CertificateStatus
     version: int

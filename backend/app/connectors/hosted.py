@@ -1,5 +1,6 @@
 """Hosted HTTP target connector implementation for REST/OpenAI-compatible APIs."""
 
+import asyncio
 import hashlib
 import json
 import time
@@ -153,17 +154,31 @@ class HostedConnector(TargetConnectorPort):
 
         timeout_sec = request.timeout_budget_ms / 1000.0
         start_time = time.perf_counter()
+        response = None
+        max_retries = 3
 
-        try:
-            async with httpx.AsyncClient(
-                timeout=httpx.Timeout(timeout_sec, connect=settings.TARGET_CONNECT_TIMEOUT),
-                follow_redirects=False,
-            ) as client:
-                response = await client.post(canonical_url, json=norm_req.json_payload, headers=headers)
-        except httpx.TimeoutException:
-            raise TargetUnavailableError(f"Target timed out after {request.timeout_budget_ms}ms")
-        except httpx.RequestError as e:
-            raise TargetUnavailableError(f"Target connection failed: {type(e).__name__}")
+        for attempt in range(max_retries + 1):
+            try:
+                async with httpx.AsyncClient(
+                    timeout=httpx.Timeout(timeout_sec, connect=settings.TARGET_CONNECT_TIMEOUT),
+                    follow_redirects=False,
+                ) as client:
+                    response = await client.post(canonical_url, json=norm_req.json_payload, headers=headers)
+            except httpx.TimeoutException:
+                raise TargetUnavailableError(f"Target timed out after {request.timeout_budget_ms}ms")
+            except httpx.RequestError as e:
+                raise TargetUnavailableError(f"Target connection failed: {type(e).__name__}")
+
+            # If rate limited (HTTP 429) or transient server busy (HTTP 503/502/504), back off and retry before failing
+            if response.status_code in (429, 502, 503, 504) and attempt < max_retries:
+                retry_after = response.headers.get("retry-after")
+                delay = float(retry_after) if retry_after and retry_after.isdigit() else (3.0 * (attempt + 1))
+                logger.warning(
+                    f"Target returned HTTP {response.status_code}. Backing off for {delay:.1f}s before retry ({attempt + 1}/{max_retries})..."
+                )
+                await asyncio.sleep(delay)
+                continue
+            break
 
         duration_ms = int((time.perf_counter() - start_time) * 1000)
 

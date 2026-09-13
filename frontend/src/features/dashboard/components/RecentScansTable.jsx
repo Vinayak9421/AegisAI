@@ -2,12 +2,19 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
 const statusConfig = {
-  completed: { dot: '#137333', text: 'Completed', textColor: 'text-on-surface-variant' },
-  running: { dot: '#0e61a1', text: 'Running', textColor: 'text-secondary', icon: true },
+  completed: { dot: '#10b981', text: 'Completed', textColor: 'text-emerald-700' },
+  running: { dot: '#0e61a1', text: 'Running', textColor: 'text-[#0e61a1]', icon: true },
+  queued: { dot: '#f59e0b', text: 'Queued', textColor: 'text-amber-700' },
 };
 
-const scoreConfig = (score) => {
-  if (!score) return { bg: 'bg-surface-container-high', text: 'text-on-surface-variant', label: '--' };
+const scoreConfig = (score, scan) => {
+  if (scan?.status !== 'completed' || score === null || score === undefined) {
+    return {
+      bg: 'bg-sky-50 border border-sky-200',
+      text: 'text-[#0e61a1]',
+      label: scan?.progressText ? `${scan.progressText} Done` : 'Evaluating...',
+    };
+  }
   if (score >= 80) return { bg: 'bg-[#E6F4EA]', text: 'text-[#137333]', label: `${score} - Safe` };
   return { bg: 'bg-[#FCE8E6]', text: 'text-[#C5221F]', label: `${score} - Review` };
 };
@@ -35,50 +42,71 @@ export default function RecentScansTable({ scans }) {
           </thead>
           <tbody className="divide-y divide-outline-variant/20">
             <AnimatePresence>
-              {scans.map((scan, i) => {
-                const sc = scoreConfig(scan.trustScore);
-                const st = statusConfig[scan.status];
-                return (
-                  <motion.tr
-                    key={scan.id}
-                    initial={{ opacity: 0, x: -12 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.08 }}
-                    className="hover:bg-surface-container-lowest transition-colors group"
-                  >
-                    <td className="py-4 px-6 text-body-md font-medium text-on-surface">{scan.name}</td>
-                    <td className="py-4 px-6 text-body-md text-on-surface-variant">{scan.date}</td>
-                    <td className="py-4 px-6">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-label-md font-bold ${sc.bg} ${sc.text}`}>
-                        {sc.label}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6">
-                      <div className={`flex items-center gap-2 text-body-md ${st?.textColor}`}>
-                        {st?.icon ? (
-                          <span className="material-symbols-outlined text-[16px] animate-spin">sync</span>
-                        ) : (
-                          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: st?.dot }} />
-                        )}
-                        {st?.text}
-                      </div>
-                    </td>
-                    <td className="py-4 px-6 text-right">
-                      {scan.status === 'completed' ? (
+              {scans.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-slate-400">
+                    <span className="material-symbols-outlined text-4xl mb-2 text-slate-300 block">
+                      hourglass_empty
+                    </span>
+                    <p className="text-sm font-semibold text-slate-600">No evaluation scans recorded yet</p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Connect your chatbot and launch an evaluation to view real-time audit logs and safety certificates.
+                    </p>
+                  </td>
+                </tr>
+              ) : (
+                scans.map((scan, i) => {
+                  const sc = scoreConfig(scan.trustScore, scan);
+                  const st = statusConfig[scan.status] || statusConfig.running;
+                  return (
+                    <motion.tr
+                      key={scan.id}
+                      initial={{ opacity: 0, x: -12 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.08 }}
+                      className="hover:bg-slate-50/70 transition-colors group"
+                    >
+                      <td className="py-4 px-6 text-sm font-semibold text-slate-800">{scan.name}</td>
+                      <td className="py-4 px-6 text-xs text-slate-500">{scan.date}</td>
+                      <td className="py-4 px-6">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${sc.bg} ${sc.text}`}>
+                          {sc.label}
+                        </span>
+                      </td>
+                      <td className="py-4 px-6">
+                        <div className={`flex items-center gap-2 text-xs font-medium ${st?.textColor}`}>
+                          {st?.icon ? (
+                            <span className="material-symbols-outlined text-[15px] animate-spin text-[#0e61a1]">sync</span>
+                          ) : (
+                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: st?.dot }} />
+                          )}
+                          {st?.text}
+                        </div>
+                      </td>
+                      <td className="py-4 px-6 text-right">
                         <motion.button
                           whileHover={{ scale: 1.02 }}
-                          onClick={() => navigate('/report/AEGIS-77X-992')}
-                          className="text-secondary hover:text-primary transition-colors text-body-md font-medium"
+                          whileTap={{ scale: 0.98 }}
+                          onClick={() => {
+                            if (scan.status === 'completed') {
+                              navigate(`/reports/${scan.id}`);
+                            } else {
+                              navigate(`/simulation?jobId=${scan.id}`);
+                            }
+                          }}
+                          className={`text-xs font-semibold px-3.5 py-1.5 rounded-xl transition-all shadow-2xs ${
+                            scan.status === 'completed'
+                              ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300'
+                              : 'bg-sky-50 hover:bg-sky-100 text-[#0e61a1] border border-sky-300'
+                          }`}
                         >
-                          View Report
+                          {scan.status === 'completed' ? 'View Report' : 'Watch Live'}
                         </motion.button>
-                      ) : (
-                        <span className="text-on-surface-variant/50 text-body-md cursor-not-allowed">Processing...</span>
-                      )}
-                    </td>
-                  </motion.tr>
-                );
-              })}
+                      </td>
+                    </motion.tr>
+                  );
+                })
+              )}
             </AnimatePresence>
           </tbody>
         </table>

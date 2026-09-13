@@ -16,47 +16,57 @@ export default function TestCategoryTracker({ categories }) {
         {/* Vertical connector line */}
         <div className="absolute left-4 top-4 bottom-4 w-0.5 bg-surface-container-high -z-10" />
 
-        {categories.map((cat, i) => {
-          const st = statusConfig[cat.status];
-          return (
-            <motion.div
-              key={cat.id}
-              initial={{ opacity: 0, x: -16 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.15 }}
-              className={clsx('flex gap-4 items-start', cat.status === 'pending' && 'opacity-50')}
-            >
-              <div
-                className={clsx(
-                  'w-8 h-8 rounded-full flex items-center justify-center shrink-0 border-2 border-white z-10',
-                  st.bg
-                )}
+        {(!categories || categories.length === 0) ? (
+          <div className="flex flex-col items-center justify-center h-full py-12 text-center text-slate-400">
+            <span className="material-symbols-outlined text-3xl mb-2 text-slate-300">category</span>
+            <p className="text-xs font-semibold text-slate-600">No categories evaluated yet</p>
+            <p className="text-[11px] text-slate-400 max-w-[200px] mt-1">
+              Threat vectors will populate automatically as test cases are executed.
+            </p>
+          </div>
+        ) : (
+          categories.map((cat, i) => {
+            const st = statusConfig[cat.status] || statusConfig.pending;
+            return (
+              <motion.div
+                key={cat.id}
+                initial={{ opacity: 0, x: -16 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.15 }}
+                className={clsx('flex gap-4 items-start', cat.status === 'pending' && 'opacity-50')}
               >
-                <span className={clsx('material-symbols-outlined text-sm', cat.status === 'active' && 'animate-spin')}>
-                  {st.icon}
-                </span>
-              </div>
-              <div className="flex-1">
-                <p className={clsx('text-body-lg font-bold', cat.status === 'active' ? 'text-primary' : 'text-on-surface')}>
-                  {cat.name}
-                </p>
-                <p className={clsx('text-body-md', cat.status === 'active' ? 'text-secondary' : 'text-on-surface-variant')}>
-                  {cat.detail}
-                </p>
-                {cat.status === 'active' && cat.progress !== undefined && (
-                  <div className="w-full bg-surface-container-high rounded-full h-1 mt-2 overflow-hidden">
-                    <motion.div
-                      className="bg-secondary h-1 rounded-full"
-                      initial={{ width: 0 }}
-                      animate={{ width: `${cat.progress}%` }}
-                      transition={{ duration: 1, ease: 'easeOut' }}
-                    />
-                  </div>
-                )}
-              </div>
-            </motion.div>
-          );
-        })}
+                <div
+                  className={clsx(
+                    'w-8 h-8 rounded-full flex items-center justify-center shrink-0 border-2 border-white z-10',
+                    st.bg
+                  )}
+                >
+                  <span className={clsx('material-symbols-outlined text-sm', cat.status === 'active' && 'animate-spin')}>
+                    {st.icon}
+                  </span>
+                </div>
+                <div className="flex-1">
+                  <p className={clsx('text-body-lg font-bold', cat.status === 'active' ? 'text-primary' : 'text-on-surface')}>
+                    {cat.name}
+                  </p>
+                  <p className={clsx('text-body-md', cat.status === 'active' ? 'text-secondary' : 'text-on-surface-variant')}>
+                    {cat.detail}
+                  </p>
+                  {cat.status === 'active' && cat.progress !== undefined && (
+                    <div className="w-full bg-surface-container-high rounded-full h-1 mt-2 overflow-hidden">
+                      <motion.div
+                        className="bg-secondary h-1 rounded-full"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${cat.progress}%` }}
+                        transition={{ duration: 1, ease: 'easeOut' }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            );
+          })
+        )}
       </div>
     </div>
   );

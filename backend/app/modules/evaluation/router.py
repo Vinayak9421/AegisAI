@@ -204,7 +204,7 @@ def generate_certificate(
     """
     resolved_tenant_id, _ = get_or_create_default_principal(db, tenant_id)
     service = JobService(db)
-    service.get_job(tenant_id=resolved_tenant_id, job_id=job_id)
+    job = service.get_job(tenant_id=resolved_tenant_id, job_id=job_id)
 
     builder = CertificateBuilder(db)
     cert = builder.generate_and_persist(job_id)
@@ -216,9 +216,12 @@ def generate_certificate(
         )
     )
 
+    target_name = job.target.name if job and job.target else "Target Bot"
+
     resp = CertificateResponse(
         id=cert.id,
         job_id=cert.job_id,
+        target_name=target_name,
         certificate_number=cert.certificate_number,
         status=cert.status,
         version=cert.version,
@@ -258,7 +261,7 @@ def get_job_certificate(
     """Retrieve Trust & Safety Certificate for an evaluation job."""
     resolved_tenant_id, _ = get_or_create_default_principal(db, tenant_id)
     service = JobService(db)
-    service.get_job(tenant_id=resolved_tenant_id, job_id=job_id)
+    job = service.get_job(tenant_id=resolved_tenant_id, job_id=job_id)
 
     builder = CertificateBuilder(db)
     cert = builder.generate_and_persist(job_id)
@@ -269,9 +272,12 @@ def get_job_certificate(
         )
     )
 
+    target_name = job.target.name if job and job.target else "Target Bot"
+
     resp = CertificateResponse(
         id=cert.id,
         job_id=cert.job_id,
+        target_name=target_name,
         certificate_number=cert.certificate_number,
         status=cert.status,
         version=cert.version,

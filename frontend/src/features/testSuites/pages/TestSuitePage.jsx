@@ -4,7 +4,6 @@ import AdminLayout from '../../../shared/components/AdminLayout';
 import TestSuiteCard from '../components/TestSuiteCard';
 import PromptExplorer from '../components/PromptExplorer';
 import benchmarkService from '../../../services/benchmarkService';
-import { mockBenchmarkPools } from '../../../store/mockData';
 
 const toggleItems = [
   { id: 'single', label: 'Single-turn Evaluation', detail: 'Target prompt-response security testing.', defaultOn: true },
@@ -45,7 +44,7 @@ export default function TestSuitePage() {
         const list = await benchmarkService.listSources();
         setSources(list || []);
       } catch {
-        // fallback
+        setSources([]);
       } finally {
         setLoading(false);
       }
@@ -53,23 +52,24 @@ export default function TestSuitePage() {
     loadSources();
   }, []);
 
-  const totalPromptsCount = sources.reduce((acc, s) => acc + (s.total_prompts || 0), 0) || 6508;
+  const totalPromptsCount = sources.reduce((acc, s) => acc + (s.total_test_cases || s.total_prompts || 0), 0);
 
-  const displayPools =
-    sources.length > 0
-      ? sources.map((s, i) => ({
-          id: s.id || i,
-          name: s.name,
-          badge: s.version || 'v1.0',
-          badgeVariant: s.source_type === 'EXTERNAL' ? 'standard' : 'ethics',
-          description: s.description || 'Pre-configured financial security & evasion attack suites.',
-          stats: [
-            { icon: 'format_list_numbered', text: `${s.total_prompts || 0} Prompts` },
-            { icon: 'shield', text: s.source_type || 'FINTECH' },
-            { icon: 'verified', text: 'Seeded in PostgreSQL', color: '#0e61a1' },
-          ],
-        }))
-      : mockBenchmarkPools;
+  const displayPools = sources.map((s, i) => {
+    const src = s.source || s;
+    const count = s.total_test_cases || s.total_prompts || 0;
+    return {
+      id: src.id || i,
+      name: src.name,
+      badge: src.revision || src.version || 'v1.0',
+      badgeVariant: src.source_type === 'EXTERNAL' ? 'standard' : 'ethics',
+      description: src.description || 'Pre-configured financial security & evasion attack suites.',
+      stats: [
+        { icon: 'format_list_numbered', text: `${count.toLocaleString()} Prompts` },
+        { icon: 'shield', text: src.source_type || 'FINTECH' },
+        { icon: 'verified', text: 'Seeded in PostgreSQL', color: '#0e61a1' },
+      ],
+    };
+  });
 
   return (
     <AdminLayout pageTitle="Benchmark Threat Catalog">
@@ -141,9 +141,19 @@ export default function TestSuitePage() {
                 <span className="material-symbols-outlined text-[#0e61a1]">library_books</span>
                 Active Benchmark Datasets ({displayPools.length})
               </h2>
-              {displayPools.map((pool, i) => (
-                <TestSuiteCard key={pool.id} pool={pool} index={i} />
-              ))}
+              {displayPools.length === 0 ? (
+                <div className="p-8 text-center bg-white rounded-2xl border border-slate-200 text-slate-400">
+                  <span className="material-symbols-outlined text-4xl text-slate-300 mb-2">folder_off</span>
+                  <p className="text-sm font-semibold text-slate-600">No benchmark sources found</p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Execute benchmark database seeding to populate threat catalogs.
+                  </p>
+                </div>
+              ) : (
+                displayPools.map((pool, i) => (
+                  <TestSuiteCard key={pool.id} pool={pool} index={i} />
+                ))
+              )}
             </div>
 
             {/* Right: Config Panel */}

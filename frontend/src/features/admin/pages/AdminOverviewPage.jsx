@@ -6,7 +6,6 @@ import EvaluationTable from '../components/EvaluationTable';
 import targetService from '../../../services/targetService';
 import jobService from '../../../services/jobService';
 import benchmarkService from '../../../services/benchmarkService';
-import { mockEvaluations } from '../../../store/mockData';
 
 const pageVariants = {
   hidden: { opacity: 0 },
@@ -37,7 +36,38 @@ export default function AdminOverviewPage() {
     loadAdminData();
   }, []);
 
-  const totalPrompts = sources.reduce((acc, s) => acc + (s.total_prompts || 0), 0) || 6508;
+  const totalPrompts = sources.reduce((acc, s) => acc + (s.total_test_cases || s.total_prompts || 0), 0);
+
+  // Map real database jobs & registered targets to evaluation rows
+  const evaluations = jobs.map((job) => {
+    const target = targets.find((t) => t.id === job.target_id);
+    const targetName = target?.name || job.config_snapshot?.target_name || `Target ${job.target_id.slice(0, 8)}`;
+    const isCompleted = job.state === 'COMPLETED';
+    const isRunning = job.state === 'RUNNING';
+    const total = job.total_items || 25;
+    const failed = job.failed_items || 0;
+    const score = isCompleted
+      ? failed === 0
+        ? 98
+        : Math.max(100 - Math.round((failed / total) * 100), 10)
+      : null;
+
+    let status = 'queued';
+    if (isRunning) status = 'running';
+    else if (isCompleted) {
+      status = failed === 0 ? 'passed' : failed > 5 ? 'critical' : 'warning';
+    }
+
+    return {
+      id: job.id,
+      client: 'FinTech Compliance',
+      project: targetName,
+      model: target?.system_type || 'Hosted Model',
+      trustScore: score,
+      status,
+      lastRun: new Date(job.created_at).toLocaleDateString(),
+    };
+  });
 
   return (
     <AdminLayout pageTitle="Security Operations Center">
@@ -69,7 +99,7 @@ export default function AdminOverviewPage() {
             label="Benchmark Catalog"
             value={totalPrompts.toLocaleString()}
             icon="data_usage"
-            trend="6.5K Prompts"
+            trend={totalPrompts > 0 ? `${(totalPrompts / 1000).toFixed(1)}K Prompts` : '0 Prompts'}
             trendLabel="FinRed, HarmBench, AdvBench"
             delay={0}
           />
@@ -98,9 +128,10 @@ export default function AdminOverviewPage() {
           />
         </div>
 
-        {/* Evaluations Table */}
-        <EvaluationTable evaluations={mockEvaluations} />
+        {/* Real Database Evaluations Table */}
+        <EvaluationTable evaluations={evaluations} />
       </motion.div>
     </AdminLayout>
   );
 }
+

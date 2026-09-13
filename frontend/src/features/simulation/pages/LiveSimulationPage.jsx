@@ -7,7 +7,6 @@ import HarmRateMeter from '../components/HarmRateMeter';
 import TestCategoryTracker from '../components/TestCategoryTracker';
 import jobService from '../../../services/jobService';
 import toast from 'react-hot-toast';
-import { mockSimulationMessages, mockTestCategories } from '../../../store/mockData';
 
 export default function LiveSimulationPage() {
   const [searchParams] = useSearchParams();
@@ -29,7 +28,7 @@ export default function LiveSimulationPage() {
             loadResults(jobs[0].id);
           }
         } catch {
-          // fallback to mock data
+          // ignore error
         }
         return;
       }
@@ -92,12 +91,51 @@ export default function LiveSimulationPage() {
             },
           };
         })
-      : mockSimulationMessages;
+      : [];
 
   const unsafeCount = results.filter((r) => r.verdict === 'UNSAFE').length;
   const safeCount = results.filter((r) => r.verdict === 'SAFE').length;
-  const totalCount = results.length || 1;
-  const currentHarmRate = Math.round((unsafeCount / totalCount) * 100);
+  const totalCount = results.length;
+  const currentHarmRate = totalCount > 0 ? Math.round((unsafeCount / totalCount) * 100) : 0;
+
+  const categoryLabels = {
+    CYBERSECURITY_AUTH: 'Cybersecurity & Auth Exploitation',
+    FRAUD_FACILITATION: 'Fraud Facilitation & Social Engineering',
+    MARKET_MANIPULATION: 'Market Manipulation & Predatory Steering',
+    CONSUMER_HARM: 'Consumer Harm & Vulnerable Protection',
+    REGULATORY_EVASION: 'Regulatory Evasion & Audit Bypass',
+    BENIGN_CALIBRATION: 'Benign Baseline Calibration',
+    PROMPT_INJECTION: 'Prompt Injection Defense',
+    JAILBREAK: 'Jailbreak Resistance',
+  };
+
+  const dynamicCategories =
+    results.length > 0
+      ? Object.entries(
+          results.reduce((acc, r) => {
+            const cat = r.category || 'FINTECH_SAFETY';
+            if (!acc[cat]) {
+              acc[cat] = { total: 0, completed: 0, unsafe: 0 };
+            }
+            acc[cat].total += 1;
+            if (r.verdict) acc[cat].completed += 1;
+            if (r.verdict === 'UNSAFE') acc[cat].unsafe += 1;
+            return acc;
+          }, {})
+        ).map(([key, data]) => {
+          const isDone = data.completed === data.total;
+          const pct = Math.round((data.completed / data.total) * 100);
+          return {
+            id: key,
+            name: categoryLabels[key] || key.replace(/_/g, ' '),
+            detail: isDone
+              ? `${data.completed}/${data.total} payloads delivered (${data.unsafe} harmful)`
+              : `In progress... (${data.completed}/${data.total})`,
+            status: isDone ? 'complete' : 'active',
+            progress: pct,
+          };
+        })
+      : [];
 
   return (
     <AppLayout pageTitle="Sentinel Live Simulation">
@@ -158,9 +196,37 @@ export default function LiveSimulationPage() {
 
           {/* Chat Messages */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/40">
-            {displayMessages.map((msg, i) => (
-              <MessageBubble key={msg.id || i} message={msg} index={i} />
-            ))}
+            {displayMessages.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center py-16 px-4">
+                <div className="w-16 h-16 rounded-2xl bg-sky-50 border border-sky-200 flex items-center justify-center text-[#0e61a1] mb-4 shadow-sm">
+                  <span className="material-symbols-outlined text-3xl">terminal</span>
+                </div>
+                <h3 className="text-base font-bold text-slate-800 mb-1">
+                  {job ? 'No Payloads Executed Yet' : 'No Evaluation Job Selected'}
+                </h3>
+                <p className="text-xs text-slate-500 max-w-md leading-relaxed mb-5">
+                  {job
+                    ? `Job #${job.id.slice(0, 8)} (${job.target?.name || 'Target Bot'}) has not executed any test cases yet. Click "Run Prompts" to dispatch adversarial prompts and capture live responses.`
+                    : 'Select or start an evaluation job to stream real-time adversarial prompts, bot responses, and judge verdicts.'}
+                </p>
+                {job && job.state !== 'COMPLETED' && (
+                  <button
+                    onClick={handleRunJob}
+                    disabled={running}
+                    className="px-4 py-2 bg-[#0e61a1] hover:bg-[#0b4e82] disabled:opacity-50 text-white rounded-xl text-xs font-semibold flex items-center gap-2 shadow-xs transition-all"
+                  >
+                    <span className={`material-symbols-outlined text-sm ${running ? 'animate-spin' : ''}`}>
+                      {running ? 'sync' : 'play_arrow'}
+                    </span>
+                    {running ? 'Testing in progress...' : 'Start Execution'}
+                  </button>
+                )}
+              </div>
+            ) : (
+              displayMessages.map((msg, i) => (
+                <MessageBubble key={msg.id || i} message={msg} index={i} />
+              ))
+            )}
 
             {running && (
               <motion.div
@@ -177,8 +243,13 @@ export default function LiveSimulationPage() {
 
         {/* Right: Metrics & Category Trackers */}
         <aside className="lg:col-span-4 flex flex-col gap-6">
-          <HarmRateMeter rate={currentHarmRate} />
-          <TestCategoryTracker categories={mockTestCategories} />
+          <HarmRateMeter
+            rate={currentHarmRate}
+            safeCount={safeCount}
+            unsafeCount={unsafeCount}
+            totalCount={results.length}
+          />
+          <TestCategoryTracker categories={dynamicCategories} />
         </aside>
       </div>
     </AppLayout>

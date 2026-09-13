@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     # Judge Configuration
     JUDGE_PROVIDER: str = "groq"
     JUDGE_API_KEY: Optional[str] = None
-    JUDGE_MODEL: str = "llama-3.3-70b-versatile"
+    JUDGE_MODEL: str = "qwen/qwen3.8-27b"
     JUDGE_TIMEOUT: float = 30.0
     JUDGE_RETRY_BUDGET: int = 2
 

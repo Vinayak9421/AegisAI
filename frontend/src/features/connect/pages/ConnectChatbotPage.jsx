@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import AppLayout from '../../../shared/components/AppLayout';
@@ -12,10 +12,12 @@ export default function ConnectChatbotPage() {
   const navigate = useNavigate();
 
   // Form states
-  const [targetName, setTargetName] = useState('Fintech Advisor Assistant');
-  const [apiUrl, setApiUrl] = useState('http://127.0.0.1:8001/chat');
-  const [apiKey, setApiKey] = useState('demo-key-fintech-1234');
-  const [authHeaderKind, setAuthHeaderKind] = useState('API_KEY');
+  const [targetName, setTargetName] = useState('Google Gemini Flash');
+  const [apiUrl, setApiUrl] = useState('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions');
+  const [apiKey, setApiKey] = useState('');
+  const [authHeaderKind, setAuthHeaderKind] = useState('BEARER_TOKEN');
+  const [connectorProfile, setConnectorProfile] = useState('openai_chat_v1');
+  const [modelName, setModelName] = useState('gemini-3.8-flash');
   const [hfRepo, setHfRepo] = useState('');
   const [showKey, setShowKey] = useState(false);
 
@@ -24,6 +26,72 @@ export default function ConnectChatbotPage() {
   const [createdTarget, setCreatedTarget] = useState(null);
   const [startingScan, setStartingScan] = useState(false);
 
+  // Auto-load latest target on component mount
+  useEffect(() => {
+    async function loadLatestTarget() {
+      try {
+        const targets = await targetService.listTargets();
+        if (targets && targets.length > 0) {
+          const verifiedTarget = targets.find((t) => t.status === 'VERIFIED') || targets[0];
+          setCreatedTarget(verifiedTarget);
+          setTargetName(verifiedTarget.name);
+          setApiUrl(verifiedTarget.endpoint_url || '');
+          if (verifiedTarget.model_ref) {
+            setModelName(verifiedTarget.model_ref);
+          }
+          if (verifiedTarget.connector_profile) {
+            setConnectorProfile(verifiedTarget.connector_profile);
+          }
+        }
+      } catch (e) {
+        console.warn('Could not load existing targets:', e);
+      }
+    }
+    loadLatestTarget();
+  }, []);
+
+  const applyPreset = (preset) => {
+    if (preset === 'gemini') {
+      setTargetName('Google Gemini Flash');
+      setApiUrl('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions');
+      setAuthHeaderKind('BEARER_TOKEN');
+      setConnectorProfile('openai_chat_v1');
+      setModelName('gemini-3.8-flash');
+      toast('Applied Google Gemini preset (OpenAI endpoint)', { icon: '⚡' });
+    } else if (preset === 'demo') {
+      setTargetName('Fintech Advisor Assistant (Demo Bot)');
+      setApiUrl('http://127.0.0.1:8001/chat');
+      setApiKey('demo-key-fintech-1234');
+      setAuthHeaderKind('API_KEY');
+      setConnectorProfile('aegis_simple_chat_v1');
+      setModelName('');
+      toast('Applied Local Demo Banking Bot preset', { icon: '🏦' });
+    } else if (preset === 'openai') {
+      setTargetName('OpenAI ChatGPT');
+      setApiUrl('https://api.openai.com/v1/chat/completions');
+      setAuthHeaderKind('BEARER_TOKEN');
+      setConnectorProfile('openai_chat_v1');
+      setModelName('gpt-4o-mini');
+      toast('Applied OpenAI ChatGPT preset', { icon: '🤖' });
+    }
+  };
+
+  const buildTargetPayload = () => {
+    const isOAI = connectorProfile === 'openai_chat_v1' || apiUrl.includes('chat/completions') || apiUrl.includes('generativelanguage') || apiUrl.includes('openai');
+    return {
+      name: targetName || 'Target Chatbot',
+      mode: 'HOSTED',
+      endpoint_url: apiUrl,
+      connector_profile: isOAI ? 'openai_chat_v1' : 'aegis_simple_chat_v1',
+      model_ref: isOAI ? (modelName || (apiUrl.includes('generativelanguage') ? 'gemini-3.8-flash' : 'gpt-4o-mini')) : undefined,
+      authorization_confirmed: true,
+      authorization_reference: 'team-authorized-pilot-target',
+      side_effect_free: true,
+      credential_payload: apiKey || undefined,
+      credential_kind: authHeaderKind === 'BEARER_TOKEN' ? 'BEARER_TOKEN' : 'API_KEY',
+    };
+  };
+
   const handleTestAndRegister = async () => {
     if (!apiUrl) {
       toast.error('Please specify target API endpoint URL');
@@ -31,17 +99,7 @@ export default function ConnectChatbotPage() {
     }
     setTesting(true);
     try {
-      const payload = {
-        name: targetName || 'Target Chatbot',
-        mode: 'HOSTED',
-        endpoint_url: apiUrl,
-        connector_profile: 'aegis_simple_chat_v1',
-        authorization_confirmed: true,
-        authorization_reference: 'team-authorized-pilot-target',
-        side_effect_free: true,
-        credential_payload: apiKey || undefined,
-        credential_kind: authHeaderKind === 'BEARER_TOKEN' ? 'BEARER_TOKEN' : 'API_KEY',
-      };
+      const payload = buildTargetPayload();
 
       let target;
       try {
@@ -63,7 +121,11 @@ export default function ConnectChatbotPage() {
 
       const refreshed = await targetService.getTarget(target.id);
       setCreatedTarget(refreshed);
-      toast.success(`Target "${refreshed.name}" verified & ready for evaluation!`);
+      if (refreshed.status === 'VERIFIED') {
+        toast.success(`Target "${refreshed.name}" verified & ready for evaluation!`);
+      } else {
+        toast.error(`Verification status: ${refreshed.status}. Check endpoint URL and API credentials.`);
+      }
     } catch (err) {
       toast.error(err.message || 'Failed to register target');
     } finally {
@@ -77,17 +139,7 @@ export default function ConnectChatbotPage() {
       let target = createdTarget;
 
       if (!target) {
-        const payload = {
-          name: targetName || 'Target Chatbot',
-          mode: 'HOSTED',
-          endpoint_url: apiUrl,
-          connector_profile: 'aegis_simple_chat_v1',
-          authorization_confirmed: true,
-          authorization_reference: 'team-authorized-pilot-target',
-          side_effect_free: true,
-          credential_payload: apiKey || undefined,
-          credential_kind: authHeaderKind === 'BEARER_TOKEN' ? 'BEARER_TOKEN' : 'API_KEY',
-        };
+        const payload = buildTargetPayload();
         try {
           target = await targetService.createTarget(payload);
         } catch (err) {
@@ -105,6 +157,13 @@ export default function ConnectChatbotPage() {
         } catch (valErr) {
           console.warn('Verification probe response:', valErr);
         }
+        target = await targetService.getTarget(target.id);
+        setCreatedTarget(target);
+      }
+
+      if (target.status !== 'VERIFIED') {
+        toast.error(`Target status is "${target.status}". Target must be VERIFIED before scheduling an evaluation scan.`);
+        return;
       }
 
       toast('Creating evaluation job with 25 FinRed adversarial prompts...', { icon: '🛡️' });
@@ -157,11 +216,10 @@ export default function ConnectChatbotPage() {
                   initial={{ scale: 0.8 }}
                   animate={{ scale: 1 }}
                   transition={{ delay: i * 0.1 }}
-                  className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs border-2 ${
-                    i === 0
-                      ? 'bg-[#0e61a1] text-white border-[#0e61a1] shadow-xs'
-                      : 'bg-white text-slate-500 border-slate-300'
-                  }`}
+                  className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs border-2 ${i === 0
+                    ? 'bg-[#0e61a1] text-white border-[#0e61a1] shadow-xs'
+                    : 'bg-white text-slate-500 border-slate-300'
+                    }`}
                 >
                   {i + 1}
                 </motion.div>
@@ -193,6 +251,48 @@ export default function ConnectChatbotPage() {
             </div>
 
             <div className="space-y-4">
+              {/* Quick Presets */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                  Quick Presets
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => applyPreset('gemini')}
+                    className={`py-1.5 px-2 text-xs font-semibold rounded-xl border transition-all flex items-center justify-center gap-1.5 ${apiUrl.includes('generativelanguage')
+                      ? 'bg-sky-50 border-sky-300 text-[#0e61a1] shadow-2xs font-bold'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                      }`}
+                  >
+                    <span>⚡</span>
+                    <span>Google Gemini</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyPreset('openai')}
+                    className={`py-1.5 px-2 text-xs font-semibold rounded-xl border transition-all flex items-center justify-center gap-1.5 ${apiUrl.includes('api.openai.com')
+                      ? 'bg-sky-50 border-sky-300 text-[#0e61a1] shadow-2xs font-bold'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                      }`}
+                  >
+                    <span>🤖</span>
+                    <span>OpenAI GPT</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applyPreset('demo')}
+                    className={`py-1.5 px-2 text-xs font-semibold rounded-xl border transition-all flex items-center justify-center gap-1.5 ${apiUrl.includes('8001')
+                      ? 'bg-sky-50 border-sky-300 text-[#0e61a1] shadow-2xs font-bold'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                      }`}
+                  >
+                    <span>🏦</span>
+                    <span>Demo Bot</span>
+                  </button>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
                   Target Name
@@ -217,6 +317,35 @@ export default function ConnectChatbotPage() {
                   placeholder="https://api.yourbot.com/v1/chat"
                   type="text"
                 />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    Protocol Profile
+                  </label>
+                  <select
+                    value={connectorProfile}
+                    onChange={(e) => setConnectorProfile(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:bg-white focus:border-[#0e61a1] transition-colors"
+                  >
+                    <option value="openai_chat_v1">OpenAI / Gemini / Groq</option>
+                    <option value="aegis_simple_chat_v1">Aegis Simple Chat (/chat)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    Model Name
+                  </label>
+                  <input
+                    value={modelName}
+                    onChange={(e) => setModelName(e.target.value)}
+                    disabled={connectorProfile === 'aegis_simple_chat_v1'}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0e61a1] transition-colors disabled:opacity-50"
+                    placeholder="gemini-3.8-flash"
+                    type="text"
+                  />
+                </div>
               </div>
 
               <div>
@@ -279,9 +408,47 @@ export default function ConnectChatbotPage() {
               </motion.button>
 
               {createdTarget && (
-                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-base text-emerald-600">check_circle</span>
-                  <span>Target active: <strong>{createdTarget.name}</strong> (Status: {createdTarget.status})</span>
+                <div
+                  className={`p-3 rounded-xl border text-xs flex items-center justify-between gap-2 transition-colors ${
+                    createdTarget.status === 'VERIFIED'
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                      : 'bg-rose-50 border-rose-200 text-rose-800'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`material-symbols-outlined text-base ${
+                        createdTarget.status === 'VERIFIED' ? 'text-emerald-600' : 'text-rose-600'
+                      }`}
+                    >
+                      {createdTarget.status === 'VERIFIED' ? 'check_circle' : 'error'}
+                    </span>
+                    <div>
+                      <span>
+                        Target: <strong>{createdTarget.name}</strong> (Status:{' '}
+                        <strong className={createdTarget.status === 'VERIFIED' ? 'text-emerald-700' : 'text-rose-700'}>
+                          {createdTarget.status}
+                        </strong>
+                        )
+                      </span>
+                      {createdTarget.validation_report?.http_status && (
+                        <p className="text-[11px] opacity-80">
+                          Probe response: HTTP {createdTarget.validation_report.http_status} (
+                          {createdTarget.validation_report.latency_ms}ms)
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  {createdTarget.status !== 'VERIFIED' && (
+                    <button
+                      type="button"
+                      onClick={handleTestAndRegister}
+                      disabled={testing}
+                      className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-bold shadow-xs transition-colors shrink-0"
+                    >
+                      Retry Probe
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -365,11 +532,10 @@ export default function ConnectChatbotPage() {
             whileTap={canStart ? { scale: 0.98 } : {}}
             disabled={!canStart || startingScan}
             onClick={handleStartScan}
-            className={`px-8 py-3.5 rounded-xl text-sm md:text-base font-bold flex items-center gap-2.5 shadow-sm transition-all ${
-              canStart
-                ? 'bg-[#0e61a1] hover:bg-[#0b4e82] text-white cursor-pointer'
-                : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-            }`}
+            className={`px-8 py-3.5 rounded-xl text-sm md:text-base font-bold flex items-center gap-2.5 shadow-sm transition-all ${canStart
+              ? 'bg-[#0e61a1] hover:bg-[#0b4e82] text-white cursor-pointer'
+              : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+              }`}
           >
             {startingScan ? (
               <>

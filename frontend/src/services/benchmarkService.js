@@ -10,6 +10,7 @@ export const benchmarkService = {
    */
   async listSources() {
     const res = await apiClient.get('/benchmarks/sources');
+    if (Array.isArray(res)) return res;
     return res.items || [];
   },
 
