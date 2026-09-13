@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { clsx } from 'clsx';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../store/AuthContext';
+import AegisLogo from './AegisLogo';
 
 export default function TopNavBar({ collapsed, onToggleCollapse, onToggleMobile, pageTitle }) {
   const navigate = useNavigate();
@@ -14,7 +15,7 @@ export default function TopNavBar({ collapsed, onToggleCollapse, onToggleMobile,
   };
 
   return (
-    <header className="sticky top-0 z-30 flex justify-between items-center px-4 md:px-8 h-16 bg-white/85 backdrop-blur-md border-b border-slate-200/80 shadow-2xs select-none">
+    <header className="sticky top-0 z-30 flex justify-between items-center px-4 md:px-8 h-16 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-2xs select-none">
       {/* Left: Sidebar Toggle & Page Title */}
       <div className="flex items-center gap-3 md:gap-4">
         {/* Mobile Hamburger Toggle */}
@@ -37,10 +38,15 @@ export default function TopNavBar({ collapsed, onToggleCollapse, onToggleMobile,
           </span>
         </button>
 
+        {/* Mobile Logo Mark */}
+        <div className="flex md:hidden items-center">
+          <AegisLogo variant="mark" size="xs" />
+        </div>
+
         {/* Workspace Brand / Breadcrumb */}
         <div className="flex items-center gap-2">
           <span className="text-sm md:text-base font-bold text-slate-900 tracking-tight">
-            {pageTitle || (isAdmin ? 'Admin Console' : 'Fintech Trust & Safety')}
+            {pageTitle || (isAdmin ? 'SOC Admin Console' : 'Fintech Trust & Safety')}
           </span>
           <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full ml-2">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -49,14 +55,13 @@ export default function TopNavBar({ collapsed, onToggleCollapse, onToggleMobile,
         </div>
       </div>
 
-      {/* Right: Actions & User Info (NO SHIFTING PAGE BUTTONS) */}
+      {/* Right: Actions & User Info */}
       <div className="flex items-center gap-2.5 md:gap-3">
         {isAuthenticated ? (
           <>
-            {/* Quick Action */}
             <button
               onClick={() => navigate('/connect')}
-              className="hidden sm:flex items-center gap-1.5 bg-[#0e61a1] hover:bg-[#0b4e82] text-white px-3.5 py-1.5 rounded-xl text-xs font-semibold shadow-xs transition-all"
+              className="hidden sm:flex items-center gap-1.5 bg-[#0e61a1] hover:bg-[#0b4e82] text-white px-3.5 py-1.5 rounded-lg text-xs font-semibold shadow-xs transition-colors"
             >
               <span className="material-symbols-outlined text-base">add_circle</span>
               <span>Connect Target</span>
@@ -66,13 +71,13 @@ export default function TopNavBar({ collapsed, onToggleCollapse, onToggleMobile,
             <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
               <span
                 className={clsx(
-                  'text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider border',
+                  'text-[10px] font-bold px-2.5 py-1 rounded-md uppercase tracking-wider border',
                   isAdmin
                     ? 'bg-amber-50 text-amber-800 border-amber-300'
                     : 'bg-sky-50 text-[#0e61a1] border-sky-200'
                 )}
               >
-                {isAdmin ? '🛡️ Admin' : '👤 User'}
+                {isAdmin ? 'SOC Admin' : 'Auditor'}
               </span>
 
               <span className="hidden lg:inline text-xs text-slate-600 font-medium max-w-[140px] truncate" title={user?.email}>

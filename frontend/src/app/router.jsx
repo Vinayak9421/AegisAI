@@ -43,10 +43,12 @@ export default function AppRouter() {
 
         {/* User & shared authenticated routes */}
         <Route element={<ProtectedRoute />}>
+          <Route path="/dashboard" element={<RootRedirect />} />
           <Route path="/user/dashboard" element={<UserDashboardPage />} />
           <Route path="/connect" element={<ConnectChatbotPage />} />
           <Route path="/simulation" element={<LiveSimulationPage />} />
           <Route path="/report/:reportId" element={<SafetyReportPage />} />
+          <Route path="/reports/:reportId" element={<SafetyReportPage />} />
         </Route>
 
         {/* Fallback */}

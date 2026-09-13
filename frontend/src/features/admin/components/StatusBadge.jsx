@@ -1,39 +1,57 @@
-import { motion } from 'framer-motion';
 import { clsx } from 'clsx';
 
 const variantMap = {
-  passed: 'badge-safe',
-  critical: 'badge-critical',
-  warning: 'badge-warning',
-  running: 'badge-running',
-  safe: 'badge-safe',
-  failed: 'badge-critical',
+  passed: 'bg-emerald-50 text-emerald-800 border-emerald-300',
+  safe: 'bg-emerald-50 text-emerald-800 border-emerald-300',
+  critical: 'bg-rose-50 text-rose-800 border-rose-300',
+  failed: 'bg-rose-50 text-rose-800 border-rose-300',
+  warning: 'bg-amber-50 text-amber-800 border-amber-300',
+  running: 'bg-sky-50 text-[#0e61a1] border-sky-300',
+  queued: 'bg-slate-50 text-slate-700 border-slate-200',
 };
 
 const labelMap = {
-  passed: 'Passed',
-  critical: 'Critical Fail',
-  warning: 'Warning',
-  running: 'Running',
-  safe: 'Safe',
-  failed: 'Failed',
+  passed: 'Passed / Compliant',
+  safe: 'Safe Refusal',
+  critical: 'Critical Breach',
+  failed: 'Evaluation Failed',
+  warning: 'Conditional / Warn',
+  running: 'Audit Running',
+  queued: 'Queued / Ready',
 };
 
 export default function StatusBadge({ status, label, className }) {
+  const normStatus = (status || 'queued').toLowerCase();
+  const classes = variantMap[normStatus] || variantMap.queued;
+  const displayLabel = label || labelMap[normStatus] || status;
+
   return (
-    <motion.span
-      initial={{ scale: 0.9, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
+    <span
       className={clsx(
-        'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-label-md font-bold',
-        variantMap[status] || 'badge-safe',
+        'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[11px] font-mono font-bold uppercase tracking-wider border shadow-2xs select-none',
+        classes,
         className
       )}
     >
-      {status === 'running' && (
-        <span className="material-symbols-outlined text-[14px] animate-spin">sync</span>
+      {normStatus === 'running' ? (
+        <span className="material-symbols-outlined text-[13px] animate-spin">sync</span>
+      ) : (
+        <span
+          className={clsx(
+            'w-1.5 h-1.5 rounded-full shrink-0',
+            normStatus === 'passed' || normStatus === 'safe'
+              ? 'bg-emerald-600'
+              : normStatus === 'warning'
+              ? 'bg-amber-600'
+              : normStatus === 'critical' || normStatus === 'failed'
+              ? 'bg-rose-600'
+              : normStatus === 'running'
+              ? 'bg-[#0e61a1]'
+              : 'bg-slate-400'
+          )}
+        />
       )}
-      {label || labelMap[status] || status}
-    </motion.span>
+      <span>{displayLabel}</span>
+    </span>
   );
 }

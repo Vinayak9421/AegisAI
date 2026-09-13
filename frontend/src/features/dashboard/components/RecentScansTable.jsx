@@ -1,113 +1,144 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-
-const statusConfig = {
-  completed: { dot: '#10b981', text: 'Completed', textColor: 'text-emerald-700' },
-  running: { dot: '#0e61a1', text: 'Running', textColor: 'text-[#0e61a1]', icon: true },
-  queued: { dot: '#f59e0b', text: 'Queued', textColor: 'text-amber-700' },
-};
-
-const scoreConfig = (score, scan) => {
-  if (scan?.status !== 'completed' || score === null || score === undefined) {
-    return {
-      bg: 'bg-sky-50 border border-sky-200',
-      text: 'text-[#0e61a1]',
-      label: scan?.progressText ? `${scan.progressText} Done` : 'Evaluating...',
-    };
-  }
-  if (score >= 80) return { bg: 'bg-[#E6F4EA]', text: 'text-[#137333]', label: `${score} - Safe` };
-  return { bg: 'bg-[#FCE8E6]', text: 'text-[#C5221F]', label: `${score} - Review` };
-};
 
 export default function RecentScansTable({ scans }) {
   const navigate = useNavigate();
 
   return (
-    <section className="bg-surface-container-lowest border border-[#E8F4F8] rounded-xl shadow-ice overflow-hidden">
-      <div className="p-6 border-b border-outline-variant/30 flex justify-between items-center">
-        <h2 className="text-title-lg font-bold text-primary">Recent Scans</h2>
-        <motion.button whileHover={{ scale: 1.02 }} className="text-secondary text-body-md hover:underline">
-          View All
-        </motion.button>
+    <section className="bg-white border border-slate-200/90 rounded-xl shadow-xs overflow-hidden">
+      <div className="p-5 border-b border-slate-200/80 flex justify-between items-center bg-slate-50/50">
+        <div>
+          <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
+            <span className="material-symbols-outlined text-[#0e61a1] text-lg">assessment</span>
+            Recent Target Evaluation Register
+          </h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Audit history of executed adversarial safety scans and certificate issuance records.
+          </p>
+        </div>
+        <button
+          onClick={() => navigate('/connect')}
+          className="text-xs font-semibold text-[#0e61a1] hover:text-[#0b4e82] flex items-center gap-1 transition-colors"
+        >
+          <span>Connect New Bot</span>
+          <span className="material-symbols-outlined text-sm">arrow_forward</span>
+        </button>
       </div>
 
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr className="bg-surface-container-low/50">
-              {['Chatbot Name', 'Date', 'Trust Score', 'Status', 'Action'].map((h, i) => (
-                <th key={h} className={`py-3 px-6 text-label-md text-on-surface-variant font-medium ${i === 4 ? 'text-right' : ''}`}>{h}</th>
-              ))}
+            <tr className="bg-slate-50/70 border-b border-slate-200/80 text-[11px] font-bold uppercase tracking-wider text-slate-500 font-mono">
+              <th className="py-3 px-5">Target System</th>
+              <th className="py-3 px-5">Evaluation Date</th>
+              <th className="py-3 px-5">Trust Score</th>
+              <th className="py-3 px-5">Pipeline Status</th>
+              <th className="py-3 px-5 text-right">Audit Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-outline-variant/20">
-            <AnimatePresence>
-              {scans.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-400">
-                    <span className="material-symbols-outlined text-4xl mb-2 text-slate-300 block">
-                      hourglass_empty
-                    </span>
-                    <p className="text-sm font-semibold text-slate-600">No evaluation scans recorded yet</p>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Connect your chatbot and launch an evaluation to view real-time audit logs and safety certificates.
-                    </p>
-                  </td>
-                </tr>
-              ) : (
-                scans.map((scan, i) => {
-                  const sc = scoreConfig(scan.trustScore, scan);
-                  const st = statusConfig[scan.status] || statusConfig.running;
-                  return (
-                    <motion.tr
-                      key={scan.id}
-                      initial={{ opacity: 0, x: -12 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.08 }}
-                      className="hover:bg-slate-50/70 transition-colors group"
+          <tbody className="divide-y divide-slate-100 text-xs">
+            {scans.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="py-12 text-center text-slate-400">
+                  <span className="material-symbols-outlined text-3xl mb-2 text-slate-300 block">
+                    inventory_2
+                  </span>
+                  <p className="text-xs font-semibold text-slate-600">No evaluation audits recorded yet</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Connect an authorized chatbot endpoint and launch an evaluation to generate safety certificates.
+                  </p>
+                </td>
+              </tr>
+            ) : (
+              scans.map((scan, i) => {
+                const isCompleted = scan.status === 'completed' || scan.state === 'COMPLETED';
+                const isRunning = scan.status === 'running' || scan.state === 'RUNNING';
+
+                const score = scan.trustScore;
+                let scoreBadge = (
+                  <span className="text-slate-400 font-mono text-[11px]">Pending Run</span>
+                );
+
+                if (score !== null && score !== undefined) {
+                  const isSafe = score >= 80;
+                  scoreBadge = (
+                    <span
+                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-bold font-sans tabular-nums border ${
+                        isSafe
+                          ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                          : 'bg-amber-50 text-amber-800 border-amber-200'
+                      }`}
                     >
-                      <td className="py-4 px-6 text-sm font-semibold text-slate-800">{scan.name}</td>
-                      <td className="py-4 px-6 text-xs text-slate-500">{scan.date}</td>
-                      <td className="py-4 px-6">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${sc.bg} ${sc.text}`}>
-                          {sc.label}
-                        </span>
-                      </td>
-                      <td className="py-4 px-6">
-                        <div className={`flex items-center gap-2 text-xs font-medium ${st?.textColor}`}>
-                          {st?.icon ? (
-                            <span className="material-symbols-outlined text-[15px] animate-spin text-[#0e61a1]">sync</span>
-                          ) : (
-                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: st?.dot }} />
-                          )}
-                          {st?.text}
-                        </div>
-                      </td>
-                      <td className="py-4 px-6 text-right">
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          onClick={() => {
-                            if (scan.status === 'completed') {
-                              navigate(`/reports/${scan.id}`);
-                            } else {
-                              navigate(`/simulation?jobId=${scan.id}`);
-                            }
-                          }}
-                          className={`text-xs font-semibold px-3.5 py-1.5 rounded-xl transition-all shadow-2xs ${
-                            scan.status === 'completed'
-                              ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300'
-                              : 'bg-sky-50 hover:bg-sky-100 text-[#0e61a1] border border-sky-300'
-                          }`}
-                        >
-                          {scan.status === 'completed' ? 'View Report' : 'Watch Live'}
-                        </motion.button>
-                      </td>
-                    </motion.tr>
+                      <span>{score}%</span>
+                      <span className="text-[10px] font-medium opacity-80">
+                        {isSafe ? 'Compliant' : 'Review'}
+                      </span>
+                    </span>
                   );
-                })
-              )}
-            </AnimatePresence>
+                }
+
+                return (
+                  <motion.tr
+                    key={scan.id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: i * 0.04 }}
+                    className="hover:bg-slate-50/80 transition-colors"
+                  >
+                    <td className="py-3.5 px-5">
+                      <div className="font-semibold text-slate-900">{scan.name}</div>
+                      <div className="text-[10px] font-mono text-slate-400">{scan.id.slice(0, 8)}</div>
+                    </td>
+                    <td className="py-3.5 px-5 text-slate-600 font-mono text-[11px]">
+                      {scan.date}
+                    </td>
+                    <td className="py-3.5 px-5">
+                      {scoreBadge}
+                    </td>
+                    <td className="py-3.5 px-5">
+                      <div className="flex items-center gap-1.5">
+                        {isRunning ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0e61a1] bg-sky-50 border border-sky-200 px-2 py-0.5 rounded">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#0e61a1] animate-pulse" />
+                            Running ({scan.progressText})
+                          </span>
+                        ) : isCompleted ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                            <span className="material-symbols-outlined text-xs text-emerald-600">check</span>
+                            Completed
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+                            {scan.state || 'Queued'}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-5 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        {isCompleted ? (
+                          <button
+                            onClick={() => navigate(`/report/${scan.id}`)}
+                            className="text-xs font-semibold px-3 py-1 bg-white hover:bg-slate-50 text-slate-800 border border-slate-200 rounded-lg transition-all shadow-2xs flex items-center gap-1"
+                          >
+                            <span className="material-symbols-outlined text-xs text-[#0e61a1]">verified</span>
+                            <span>Certificate</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => navigate(`/simulation?jobId=${scan.id}`)}
+                            className="text-xs font-semibold px-3 py-1 bg-[#0e61a1] hover:bg-[#0b4e82] text-white rounded-lg transition-all shadow-xs flex items-center gap-1"
+                          >
+                            <span className="material-symbols-outlined text-xs">play_arrow</span>
+                            <span>Telemetry</span>
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </motion.tr>
+                );
+              })
+            )}
           </tbody>
         </table>
       </div>

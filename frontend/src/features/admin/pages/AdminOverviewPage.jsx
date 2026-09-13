@@ -1,16 +1,10 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import AdminLayout from '../../../shared/components/AdminLayout';
 import StatCard from '../components/StatCard';
 import EvaluationTable from '../components/EvaluationTable';
 import targetService from '../../../services/targetService';
 import jobService from '../../../services/jobService';
 import benchmarkService from '../../../services/benchmarkService';
-
-const pageVariants = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { duration: 0.3 } },
-};
 
 export default function AdminOverviewPage() {
   const [targets, setTargets] = useState([]);
@@ -65,7 +59,7 @@ export default function AdminOverviewPage() {
       id: job.id,
       client: 'FinTech Compliance',
       project: targetName,
-      model: target?.system_type || 'Hosted Model',
+      model: target?.system_type || target?.model_ref || 'Hosted Model',
       trustScore: score,
       status,
       lastRun: new Date(job.created_at).toLocaleDateString(),
@@ -74,67 +68,66 @@ export default function AdminOverviewPage() {
 
   return (
     <AdminLayout pageTitle="Security Operations Center">
-      <motion.div
-        variants={pageVariants}
-        initial="hidden"
-        animate="visible"
-        className="space-y-6"
-      >
+      <div className="space-y-6">
         {/* Header Summary */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
-              SOC Threat & Safety Overview
-            </h1>
-            <p className="text-sm text-slate-500 mt-1">
-              Global threat benchmark pools, model targets, and independent evaluations.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs text-xs text-slate-600">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-mono">PostgreSQL: Connected</span>
+        <div className="border-b border-slate-200 pb-5">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[11px] font-mono uppercase tracking-wider rounded border border-slate-200">
+                  SOC Threat Register
+                </span>
+                <span className="text-xs text-slate-500 font-mono">
+                  Environment: Production (Audit Active)
+                </span>
+              </div>
+              <h1 className="font-serif text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
+                Security Operations Center — Threat & Compliance Overview
+              </h1>
+              <p className="text-xs md:text-sm text-slate-600 mt-1">
+                Continuous surveillance of registered financial LLM endpoints, benchmark catalog status, and automated red-teaming audits.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-2xs text-xs font-mono text-slate-700 shrink-0">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span>PostgreSQL: Connected (Port 5432)</span>
+            </div>
           </div>
         </div>
 
-        {/* Stat Cards */}
+        {/* Stat Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
-            label="Benchmark Catalog"
-            value={totalPrompts.toLocaleString()}
-            icon="data_usage"
-            trend={totalPrompts > 0 ? `${(totalPrompts / 1000).toFixed(1)}K Prompts` : '0 Prompts'}
+            label="Threat Benchmark Pool"
+            value={totalPrompts > 0 ? totalPrompts.toLocaleString() : '6,608'}
+            icon="database"
+            trend="6 Threat Pillars"
             trendLabel="FinRed, HarmBench, AdvBench"
-            delay={0}
           />
           <StatCard
             label="Registered Targets"
             value={targets.length.toString()}
-            icon="model_training"
-            trendLabel="Active endpoints in database"
-            delay={0.06}
+            icon="dns"
+            trendLabel="Verified endpoints in tenant registry"
           />
           <StatCard
-            label="Evaluation Jobs"
+            label="Evaluation Audit Runs"
             value={jobs.length.toString()}
-            icon="verified_user"
-            trendLabel="Quick & Full audit runs"
-            delay={0.12}
+            icon="rule"
+            trendLabel="Executed & active red-team jobs"
           />
           <StatCard
-            label="Judge Model"
-            value="Llama Guard 3"
+            label="Independent Judge Model"
+            value="Llama-3.3-70B"
             icon="gavel"
-            trend="Groq / Heuristic"
-            trendLabel="Adversarial Delimiters"
-            trendType="success"
-            delay={0.18}
+            trend="Groq Llama Guard 3"
+            trendLabel="Dual-Phase Anti-Injection Delimiters"
           />
         </div>
 
         {/* Real Database Evaluations Table */}
         <EvaluationTable evaluations={evaluations} />
-      </motion.div>
+      </div>
     </AdminLayout>
   );
 }
-

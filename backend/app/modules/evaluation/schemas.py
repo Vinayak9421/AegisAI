@@ -85,6 +85,7 @@ class TestResultResponse(BaseModel):
     logical_key: str
     attack_prompt: Optional[str] = None
     target_response: Optional[str] = None
+    response_text: Optional[str] = None
     created_at: datetime.datetime
 
 

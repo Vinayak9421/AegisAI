@@ -366,6 +366,7 @@ class JobService(BaseService):
             if r.test_case:
                 item.attack_prompt = r.test_case.prompt_template
             item.target_response = r.response_text
+            item.response_text = r.response_text
             items.append(item)
 
         return Page(

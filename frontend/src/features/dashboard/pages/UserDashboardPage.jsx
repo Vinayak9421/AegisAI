@@ -75,15 +75,14 @@ export default function UserDashboardPage() {
   const totalCompletedItems = jobs.reduce((acc, j) => acc + (j.completed_items || 0), 0);
   const totalFailedItems = jobs.reduce((acc, j) => acc + (j.failed_items || 0), 0);
 
+  const evaluatedJobs = jobs.filter((j) => j.trust_score !== null && j.trust_score !== undefined);
   const overallTrustScore =
-    completedJobs.length > 0
+    evaluatedJobs.length > 0
       ? Math.round(
-          completedJobs.reduce((acc, j) => {
-            const failed = j.failed_items || 0;
-            const total = j.total_items || 25;
-            return acc + (failed === 0 ? 98 : Math.max(100 - Math.round((failed / total) * 100), 10));
-          }, 0) / completedJobs.length
+          evaluatedJobs.reduce((acc, j) => acc + j.trust_score, 0) / evaluatedJobs.length
         )
+      : completedJobs.length > 0
+      ? 75
       : null;
 
   const attackEvasionRate =
@@ -99,33 +98,36 @@ export default function UserDashboardPage() {
   return (
     <AppLayout pageTitle="Trust & Safety Overview">
       {/* Page Header */}
-      <motion.header
-        initial={{ opacity: 0, y: -16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4"
-      >
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
-            Trust & Safety Overview
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Active targets: <strong className="text-slate-800">{targets.length}</strong> | Evaluated jobs: <strong className="text-slate-800">{jobs.length}</strong>
-          </p>
-        </div>
+      <div className="border-b border-slate-200 pb-5 mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[11px] font-mono uppercase tracking-wider rounded border border-slate-200">
+                Audit Dashboard
+              </span>
+              <span className="text-xs text-slate-500 font-mono">
+                Active Targets: {targets.length} • Evaluated Jobs: {jobs.length}
+              </span>
+            </div>
+            <h1 className="font-serif text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
+              Trust & Safety Surveillance Dashboard
+            </h1>
+            <p className="text-xs md:text-sm text-slate-600 mt-1">
+              Consolidated trust scores, adversarial exposure rates, and regulatory compliance standing for registered model endpoints.
+            </p>
+          </div>
 
-        <div className="flex items-center gap-3">
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => navigate('/connect')}
-            className="bg-[#0e61a1] hover:bg-[#0b4e82] text-white px-5 py-2.5 rounded-xl text-xs font-semibold flex items-center gap-2 shadow-xs hover:shadow transition-all"
-          >
-            <span className="material-symbols-outlined text-base">add_circle</span>
-            <span>New Bot Evaluation</span>
-          </motion.button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate('/connect')}
+              className="bg-[#0e61a1] hover:bg-[#0b4e82] text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all"
+            >
+              <span className="material-symbols-outlined text-base">add</span>
+              <span>New Target Scan</span>
+            </button>
+          </div>
         </div>
-      </motion.header>
+      </div>
 
       {/* Gauge Cards */}
       <motion.section

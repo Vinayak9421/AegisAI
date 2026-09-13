@@ -41,20 +41,22 @@ export default function AppLayout({ children, pageTitle }) {
 
       {/* Main Content Area */}
       <div
-        className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out ${
+        className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ease-in-out print:ml-0 ${
           collapsed ? 'md:ml-[76px]' : 'md:ml-[260px]'
         }`}
       >
         {/* Top Header - No shifting navigation items */}
-        <TopNavBar
-          collapsed={collapsed}
-          onToggleCollapse={toggleCollapse}
-          onToggleMobile={toggleMobile}
-          pageTitle={pageTitle}
-        />
+        <div className="print:hidden">
+          <TopNavBar
+            collapsed={collapsed}
+            onToggleCollapse={toggleCollapse}
+            onToggleMobile={toggleMobile}
+            pageTitle={pageTitle}
+          />
+        </div>
 
         {/* Dynamic Page Container */}
-        <main className="flex-1 p-5 md:p-8 max-w-[1500px] w-full mx-auto">
+        <main className="flex-1 p-5 md:p-8 max-w-[1500px] w-full mx-auto print:p-0 print:max-w-none">
           {children}
         </main>
       </div>

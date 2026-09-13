@@ -152,3 +152,34 @@
 .gauge-circle {
   animation: drawCircle 1.5s ease-out forwards;
 }
+
+/* Print optimization for formal audit certificates */
+@media print {
+  @page {
+    margin: 12mm 15mm;
+    size: A4 portrait;
+  }
+  body {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 11pt;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  aside, nav, header, button, select, .print\:hidden {
+    display: none !important;
+  }
+  .print-certificate-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+  .print-avoid-break {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+}
+

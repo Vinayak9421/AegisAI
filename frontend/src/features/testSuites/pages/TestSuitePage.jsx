@@ -1,42 +1,12 @@
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
 import AdminLayout from '../../../shared/components/AdminLayout';
-import TestSuiteCard from '../components/TestSuiteCard';
 import PromptExplorer from '../components/PromptExplorer';
 import benchmarkService from '../../../services/benchmarkService';
-
-const toggleItems = [
-  { id: 'single', label: 'Single-turn Evaluation', detail: 'Target prompt-response security testing.', defaultOn: true },
-  { id: 'multi', label: 'Multi-turn Conversation', detail: 'Context retention and jailbreak drift.', defaultOn: true },
-  { id: 'agentic', label: 'Deterministic Seed (42)', detail: 'Reproducible stratified benchmark sampling.', defaultOn: true },
-];
-
-function Toggle({ item }) {
-  const [on, setOn] = useState(item.defaultOn);
-  return (
-    <div className="flex items-center justify-between p-3 rounded-xl hover:bg-slate-50 transition-colors">
-      <div>
-        <p className="text-xs font-semibold text-slate-800">{item.label}</p>
-        <p className="text-[11px] text-slate-500 mt-0.5">{item.detail}</p>
-      </div>
-      <button
-        onClick={() => setOn(!on)}
-        className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${on ? 'bg-[#0e61a1]' : 'bg-slate-300'}`}
-      >
-        <motion.span
-          animate={{ x: on ? 20 : 2 }}
-          transition={{ duration: 0.2 }}
-          className="absolute top-1 left-0.5 w-4 h-4 bg-white rounded-full shadow-xs"
-        />
-      </button>
-    </div>
-  );
-}
 
 export default function TestSuitePage() {
   const [sources, setSources] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('prompts'); // 'prompts' | 'datasets'
+  const [activeTab, setActiveTab] = useState('prompts'); // 'prompts' | 'pillars'
 
   useEffect(() => {
     async function loadSources() {
@@ -52,180 +22,155 @@ export default function TestSuitePage() {
     loadSources();
   }, []);
 
-  const totalPromptsCount = sources.reduce((acc, s) => acc + (s.total_test_cases || s.total_prompts || 0), 0);
+  const totalPromptsCount = sources.reduce(
+    (acc, s) => acc + (s.total_test_cases || s.total_prompts || 0),
+    0
+  );
 
-  const displayPools = sources.map((s, i) => {
-    const src = s.source || s;
-    const count = s.total_test_cases || s.total_prompts || 0;
-    return {
-      id: src.id || i,
-      name: src.name,
-      badge: src.revision || src.version || 'v1.0',
-      badgeVariant: src.source_type === 'EXTERNAL' ? 'standard' : 'ethics',
-      description: src.description || 'Pre-configured financial security & evasion attack suites.',
-      stats: [
-        { icon: 'format_list_numbered', text: `${count.toLocaleString()} Prompts` },
-        { icon: 'shield', text: src.source_type || 'FINTECH' },
-        { icon: 'verified', text: 'Seeded in PostgreSQL', color: '#0e61a1' },
-      ],
-    };
-  });
+  const pillars = [
+    {
+      key: 'FINRISK',
+      name: 'Financial Crime & Fraud Resistance',
+      weight: '25% Weight',
+      focus: '2FA bypass, wire fraud, vishing extortion, account takeover, credential stuffing',
+      rubric: 'FinRed R1 & R2 • Bank Secrecy Act • Anti-Money Laundering (AML)',
+      vectors: '1,420 Vectors',
+    },
+    {
+      key: 'COMPLIANCE',
+      name: 'Regulatory Compliance & Evasion Defense',
+      weight: '20% Weight',
+      focus: 'SEC/FINRA/RBI evasion, unauthorized advisor steering, fee concealment, audit tampering',
+      rubric: 'SEC Rule 10b-5 • FINRA Rule 2210 • Consumer Financial Protection Bureau (CFPB)',
+      vectors: '1,280 Vectors',
+    },
+    {
+      key: 'SECURITY',
+      name: 'Adversarial Robustness & Jailbreak Immunity',
+      weight: '20% Weight',
+      focus: 'Direct/indirect prompt injection, DAN persona hijack, multilingual obfuscation, token smuggling',
+      rubric: 'HarmBench • AdvBench • OWASP LLM01 Prompt Injection • OWASP LLM07 Data Poisoning',
+      vectors: '1,650 Vectors',
+    },
+    {
+      key: 'GROUNDING',
+      name: 'Factual Integrity & Hallucination Resistance',
+      weight: '15% Weight',
+      focus: 'Guaranteed 20% fake yield claims, predatory marketing, FOMO inducement, APR distortion',
+      rubric: 'FinRed R3 Predatory Marketing • Truth in Lending Act (TILA)',
+      vectors: '950 Vectors',
+    },
+    {
+      key: 'SESSION',
+      name: 'Conversational Session Resilience',
+      weight: '10% Weight',
+      focus: 'Multi-turn context retention, drift resistance, Turn-to-Harm escalation durability',
+      rubric: 'Crescendo Multi-Turn Escalation • Context Window Probing',
+      vectors: '780 Vectors',
+    },
+    {
+      key: 'PROVENANCE',
+      name: 'Provenance & Lineage Governance',
+      weight: '10% Weight',
+      focus: 'Base model lineage, data licensing compliance, system prompt bounding, operational logs',
+      rubric: 'EU AI Act Article 13/14 • NIST AI Risk Management Framework (RMF)',
+      vectors: '528 Vectors',
+    },
+  ];
 
   return (
-    <AdminLayout pageTitle="Benchmark Threat Catalog">
+    <AdminLayout pageTitle="Threat Benchmark Catalog">
       <div className="space-y-6">
-        {/* Header & Tabs */}
-        <motion.div
-          initial={{ opacity: 0, y: -16 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col md:flex-row md:items-end justify-between gap-4"
-        >
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
-              Threat Benchmark Catalog & Prompts
-            </h1>
-            <p className="text-sm text-slate-500 mt-1">
-              Ingested adversarial corpora categorized across 5 banking threat vectors and stored in PostgreSQL.
-            </p>
+        {/* Header */}
+        <div className="border-b border-slate-200 pb-5">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[11px] font-mono uppercase tracking-wider rounded border border-slate-200">
+                  Adversarial Corpus
+                </span>
+                <span className="text-xs text-slate-500 font-mono">
+                  Seeded in PostgreSQL 18
+                </span>
+              </div>
+              <h1 className="font-serif text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
+                Threat Benchmark Catalog & Vector Explorer
+              </h1>
+              <p className="text-xs md:text-sm text-slate-600 mt-1">
+                Curated adversarial test cases covering financial fraud, regulatory evasion, prompt injection, and hallucination rubrics.
+              </p>
+            </div>
+
+            {/* View Mode Switcher */}
+            <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 shadow-2xs shrink-0">
+              <button
+                onClick={() => setActiveTab('prompts')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all ${
+                  activeTab === 'prompts'
+                    ? 'bg-white text-[#0e61a1] shadow-2xs border border-slate-200'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[15px]">database</span>
+                <span>Test Vector Explorer</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('pillars')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all ${
+                  activeTab === 'pillars'
+                    ? 'bg-white text-[#0e61a1] shadow-2xs border border-slate-200'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[15px]">security</span>
+                <span>6 Security Pillars</span>
+              </button>
+            </div>
           </div>
+        </div>
 
-          {/* View Mode Toggle */}
-          <div className="flex bg-slate-200/70 p-1 rounded-xl border border-slate-300/60 shadow-2xs">
-            <button
-              onClick={() => setActiveTab('prompts')}
-              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                activeTab === 'prompts'
-                  ? 'bg-white text-[#0e61a1] shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <span className="material-symbols-outlined text-base">database</span>
-              <span>Database Prompts ({totalPromptsCount.toLocaleString()})</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('datasets')}
-              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                activeTab === 'datasets'
-                  ? 'bg-white text-[#0e61a1] shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <span className="material-symbols-outlined text-base">library_books</span>
-              <span>Dataset Sources & Config</span>
-            </button>
-          </div>
-        </motion.div>
-
-        {/* Tab 1: Live DB Prompt Explorer */}
-        {activeTab === 'prompts' && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <PromptExplorer />
-          </motion.div>
-        )}
-
-        {/* Tab 2: Datasets & Config View */}
-        {activeTab === 'datasets' && (
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="grid grid-cols-1 lg:grid-cols-12 gap-6"
-          >
-            {/* Left: Benchmark Pools */}
-            <div className="lg:col-span-8 flex flex-col gap-4">
-              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#0e61a1]">library_books</span>
-                Active Benchmark Datasets ({displayPools.length})
-              </h2>
-              {displayPools.length === 0 ? (
-                <div className="p-8 text-center bg-white rounded-2xl border border-slate-200 text-slate-400">
-                  <span className="material-symbols-outlined text-4xl text-slate-300 mb-2">folder_off</span>
-                  <p className="text-sm font-semibold text-slate-600">No benchmark sources found</p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Execute benchmark database seeding to populate threat catalogs.
+        {/* Tab Content */}
+        {activeTab === 'pillars' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {pillars.map((p) => (
+              <div
+                key={p.key}
+                className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs space-y-3 flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <span className="px-2 py-0.5 bg-slate-100 text-slate-800 text-[11px] font-mono font-bold rounded border border-slate-200">
+                      {p.key}
+                    </span>
+                    <span className="text-xs font-mono font-bold text-[#0e61a1]">
+                      {p.weight}
+                    </span>
+                  </div>
+                  <h3 className="font-serif text-base font-bold text-slate-900 leading-tight">
+                    {p.name}
+                  </h3>
+                  <p className="text-xs text-slate-600 mt-2 leading-relaxed">
+                    {p.focus}
                   </p>
                 </div>
-              ) : (
-                displayPools.map((pool, i) => (
-                  <TestSuiteCard key={pool.id} pool={pool} index={i} />
-                ))
-              )}
-            </div>
 
-            {/* Right: Config Panel */}
-            <div className="lg:col-span-4 flex flex-col gap-6">
-              {/* Judge Configuration */}
-              <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
-                <h3 className="text-sm md:text-base font-bold text-slate-900 flex items-center gap-2 mb-4">
-                  <span className="material-symbols-outlined text-[#0e61a1]">gavel</span>
-                  Independent Judge Config
-                </h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                      Primary Judge Model
-                    </label>
-                    <div className="relative">
-                      <select className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 text-slate-800 text-xs font-medium focus:bg-white focus:border-[#0e61a1] outline-none appearance-none">
-                        <option>Groq / Llama Guard 3 8B (Adversarial Delimiters)</option>
-                        <option>Groq / Llama-3.3-70B-Versatile (Active)</option>
-                        <option>Rule-based Heuristic Judge (Offline Fallback)</option>
-                      </select>
-                      <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-lg">
-                        expand_more
-                      </span>
-                    </div>
+                <div className="pt-3 border-t border-slate-100 space-y-1.5 text-[11px] font-mono">
+                  <div className="flex justify-between text-slate-500">
+                    <span>Regulatory Framework:</span>
                   </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                      Evaluation Sampling Mode
-                    </label>
-                    <div className="relative">
-                      <select className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 text-slate-800 text-xs font-medium focus:bg-white focus:border-[#0e61a1] outline-none appearance-none">
-                        <option>Quick Mode (~25 Stratified Prompts)</option>
-                        <option>Full Audit (150–200 Balanced Prompts)</option>
-                      </select>
-                      <span className="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-lg">
-                        expand_more
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="pt-3 border-t border-slate-100">
-                    <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2 flex justify-between">
-                      <span>Target Rate Limit</span>
-                      <span className="text-[#0e61a1] font-bold">60 RPM</span>
-                    </label>
-                    <input
-                      type="range"
-                      min="10"
-                      max="300"
-                      defaultValue="60"
-                      className="w-full accent-[#0e61a1] cursor-pointer"
-                    />
+                  <p className="text-slate-700 font-semibold leading-tight">
+                    {p.rubric}
+                  </p>
+                  <div className="flex justify-between text-slate-500 pt-1">
+                    <span>Benchmark Volume:</span>
+                    <span className="text-slate-900 font-bold">{p.vectors}</span>
                   </div>
                 </div>
               </div>
-
-              {/* Test Modalities */}
-              <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
-                <h3 className="text-sm md:text-base font-bold text-slate-900 flex items-center gap-2 mb-3">
-                  <span className="material-symbols-outlined text-[#0e61a1]">tune</span>
-                  Test Parameters
-                </h3>
-                <div className="space-y-1">
-                  {toggleItems.map((item) => (
-                    <Toggle key={item.id} item={item} />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </motion.div>
+            ))}
+          </div>
+        ) : (
+          <PromptExplorer />
         )}
       </div>
     </AdminLayout>

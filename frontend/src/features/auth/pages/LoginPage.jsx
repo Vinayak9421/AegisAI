@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../store/AuthContext';
+import AegisLogo from '../../../shared/components/AegisLogo';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -19,20 +20,20 @@ export default function LoginPage() {
     setActiveTab('user');
     setEmail('user@aegis.ai');
     setPassword('User@1234');
-    toast.success('Filled Demo User credentials');
+    toast.success('Loaded Auditor credentials (user@aegis.ai)');
   };
 
   const fillDemoAdmin = () => {
     setActiveTab('admin');
     setEmail('admin@aegis.ai');
     setPassword('123456');
-    toast.success('Filled Demo Admin credentials (123456)');
+    toast.success('Loaded SOC Admin credentials (admin@aegis.ai)');
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!email || !password) {
-      toast.error('Please enter both email and password');
+      toast.error('Please provide both email and password');
       return;
     }
 
@@ -40,7 +41,7 @@ export default function LoginPage() {
     try {
       const res = await login(email, password);
       const user = res?.user || res;
-      toast.success(`Welcome back, ${user?.email || email}!`);
+      toast.success(`Authenticated as ${user?.email || email}`);
 
       if (user?.role === 'ADMIN') {
         navigate('/admin/overview');
@@ -48,103 +49,94 @@ export default function LoginPage() {
         navigate('/user/dashboard');
       }
     } catch (err) {
-      toast.error(err.message || 'Authentication failed');
+      toast.error(err.message || 'Authentication failed. Please verify credentials.');
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[#f8fafc] text-slate-800 relative overflow-hidden">
-      {/* Background Soft Accents */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute -top-40 -left-40 w-[450px] h-[450px] bg-sky-200/40 rounded-full blur-[100px]" />
-        <div className="absolute top-1/2 -right-32 w-[400px] h-[400px] bg-blue-100/50 rounded-full blur-[100px]" />
-      </div>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-[#f8fafc] text-slate-800 relative select-none">
+      {/* Subtle Background Architectural Grid */}
+      <div className="fixed inset-0 pointer-events-none opacity-40 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:20px_20px]" />
 
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: 'easeOut' }}
-        className="w-full max-w-md bg-white border border-slate-200/90 rounded-2xl shadow-xl relative z-10 overflow-hidden"
+        transition={{ duration: 0.35, ease: 'easeOut' }}
+        className="w-full max-w-md bg-white border border-slate-200/90 rounded-2xl shadow-xs relative z-10 overflow-hidden"
       >
-        {/* Top Glacier Gradient Accent Bar */}
-        <div className="h-1.5 w-full bg-gradient-to-r from-[#001c40] via-[#0e61a1] to-[#38bdf8]" />
+        {/* Security Status Indicator Line */}
+        <div className="h-1 w-full bg-[#0e61a1]" />
 
-        <div className="p-8">
-          {/* Logo & Header */}
-          <div className="text-center mb-8">
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              className="relative w-14 h-14 mx-auto mb-4"
-            >
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#001c40] via-[#0e61a1] to-[#38bdf8] flex items-center justify-center text-white shadow-md shadow-sky-900/20">
-                <span className="material-symbols-outlined text-white text-3xl">security</span>
-              </div>
-            </motion.div>
-            
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-              AegisAI Control Center
+        <div className="p-7 sm:p-9">
+          {/* Official Institutional Brand Header */}
+          <div className="text-center mb-7">
+            <div className="flex justify-center mb-3">
+              <AegisLogo size="xl" showSubtitle={true} subtitleText="FINTECH TRUST & SAFETY GATEWAY" />
+            </div>
+            <h1 className="text-xl font-serif font-semibold text-slate-900 tracking-tight mt-3">
+              Institutional Security Login
             </h1>
-            <p className="text-xs text-slate-500 mt-1 font-medium tracking-wide uppercase">
-              Autonomous Fintech Trust & Safety Platform
+            <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+              Sign in to access adversarial simulation runs, audit registers, and cryptographic attestation certificates.
             </p>
           </div>
 
-          {/* Role Segment Tabs */}
-          <div className="flex bg-slate-100 rounded-xl p-1 mb-6 border border-slate-200">
+          {/* Role Segmented Selector */}
+          <div className="flex bg-slate-100/90 rounded-lg p-1 mb-5 border border-slate-200/80">
             <button
               type="button"
               onClick={() => setActiveTab('user')}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-all duration-150 ${
+              className={`flex-1 py-2 text-xs font-semibold rounded-md flex items-center justify-center gap-1.5 transition-all ${
                 activeTab === 'user'
-                  ? 'bg-white text-[#0e61a1] shadow-xs border border-slate-200/80'
-                  : 'text-slate-500 hover:text-slate-800'
+                  ? 'bg-white text-[#0e61a1] shadow-2xs border border-slate-200/80 font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <span className="material-symbols-outlined text-base">person</span>
-              User Portal
+              <span className="material-symbols-outlined text-sm">badge</span>
+              <span>Auditor Portal</span>
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('admin')}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-all duration-150 ${
+              className={`flex-1 py-2 text-xs font-semibold rounded-md flex items-center justify-center gap-1.5 transition-all ${
                 activeTab === 'admin'
-                  ? 'bg-white text-[#0e61a1] shadow-xs border border-slate-200/80'
-                  : 'text-slate-500 hover:text-slate-800'
+                  ? 'bg-white text-[#0e61a1] shadow-2xs border border-slate-200/80 font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <span className="material-symbols-outlined text-base">shield_person</span>
-              Admin Portal
+              <span className="material-symbols-outlined text-sm">security</span>
+              <span>SOC Admin</span>
             </button>
           </div>
 
-          {/* Quick Demo Autofill helper */}
-          <div className="flex items-center justify-between mb-6 px-1">
-            <span className="text-xs text-slate-500 font-medium">Quick autofill:</span>
+          {/* Quick Demo Credentials Bar */}
+          <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 mb-5 text-xs">
+            <span className="text-[11px] font-mono text-slate-500 uppercase font-semibold">Demo Fill:</span>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={fillDemoUser}
-                className="text-xs px-2.5 py-1 rounded-lg bg-sky-50 text-[#0e61a1] border border-sky-200 hover:bg-sky-100 transition-all font-semibold"
+                className="text-[11px] px-2 py-0.5 rounded bg-white text-slate-700 border border-slate-200 hover:border-slate-300 font-medium transition-colors"
               >
-                Demo User
+                Auditor
               </button>
               <button
                 type="button"
                 onClick={fillDemoAdmin}
-                className="text-xs px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition-all font-semibold"
+                className="text-[11px] px-2 py-0.5 rounded bg-white text-slate-700 border border-slate-200 hover:border-slate-300 font-medium transition-colors"
               >
-                Demo Admin (123456)
+                SOC Admin
               </button>
             </div>
           </div>
 
-          {/* Form */}
+          {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                Email Address
+              <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                Authorized Email Address
               </label>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-lg">
@@ -156,14 +148,14 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder={activeTab === 'admin' ? 'admin@aegis.ai' : 'user@aegis.ai'}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0e61a1] transition-all"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3.5 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0e61a1] focus:ring-1 focus:ring-[#0e61a1] transition-all font-mono"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                Password
+              <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                Credential Key / Password
               </label>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-lg">
@@ -174,50 +166,55 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-10 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0e61a1] transition-all"
+                  placeholder="••••••••••••"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-10 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0e61a1] focus:ring-1 focus:ring-[#0e61a1] transition-all font-mono"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 transition-colors"
+                  title={showPassword ? 'Mask Password' : 'Show Password'}
                 >
-                  <span className="material-symbols-outlined text-lg">
+                  <span className="material-symbols-outlined text-base">
                     {showPassword ? 'visibility_off' : 'visibility'}
                   </span>
                 </button>
               </div>
             </div>
 
-            <motion.button
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
+            <button
               type="submit"
               disabled={submitting}
-              className={`w-full mt-2 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 text-white bg-[#0e61a1] hover:bg-[#0b4e82] shadow-sm hover:shadow transition-all ${
+              className={`w-full mt-2 py-2.5 rounded-lg font-semibold text-xs flex items-center justify-center gap-2 text-white bg-[#0e61a1] hover:bg-[#0b4e82] shadow-xs transition-colors ${
                 submitting ? 'opacity-70 cursor-not-allowed' : ''
               }`}
             >
               {submitting ? (
                 <>
-                  <span className="material-symbols-outlined animate-spin text-lg">refresh</span>
-                  <span>Authenticating...</span>
+                  <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Verifying Credentials...</span>
                 </>
               ) : (
                 <>
-                  <span>Sign In as {activeTab === 'admin' ? 'Security Admin' : 'Workspace User'}</span>
-                  <span className="material-symbols-outlined text-lg">arrow_forward</span>
+                  <span>Sign In as {activeTab === 'admin' ? 'SOC Security Admin' : 'Quantitative Auditor'}</span>
+                  <span className="material-symbols-outlined text-base">arrow_forward</span>
                 </>
               )}
-            </motion.button>
+            </button>
           </form>
 
-          {/* Footer links */}
-          <div className="mt-6 pt-6 border-t border-slate-100 text-center text-xs text-slate-500">
-            Don't have an enterprise account?{' '}
-            <Link to="/register" className="text-[#0e61a1] hover:underline font-semibold transition-colors">
-              Register your team
-            </Link>
+          {/* Footer Registration & Compliance Note */}
+          <div className="mt-6 pt-5 border-t border-slate-100 flex flex-col gap-3 text-center text-xs text-slate-500">
+            <div>
+              Need enterprise organization access?{' '}
+              <Link to="/register" className="text-[#0e61a1] hover:text-[#0b4e82] font-semibold transition-colors">
+                Register Workspace
+              </Link>
+            </div>
+
+            <div className="text-[10px] font-mono text-slate-400">
+              NIST AI RMF 1.0 • FINRA Regulatory Notice 21-25 • SEC Rule 10b-5
+            </div>
           </div>
         </div>
       </motion.div>

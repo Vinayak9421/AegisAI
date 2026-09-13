@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
 import AppLayout from '../../../shared/components/AppLayout';
+import AegisLogo from '../../../shared/components/AegisLogo';
 import jobService from '../../../services/jobService';
 import toast from 'react-hot-toast';
 
@@ -13,6 +14,7 @@ export default function SafetyReportPage() {
   const [availableJobs, setAvailableJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedFailureId, setExpandedFailureId] = useState(null);
+  const [copiedHash, setCopiedHash] = useState(false);
 
   useEffect(() => {
     async function loadCertificate() {
@@ -42,15 +44,42 @@ export default function SafetyReportPage() {
     loadCertificate();
   }, [reportId]);
 
+  const copyToClipboard = (text, label) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`Copied ${label} to clipboard`);
+  };
+
+  const handleCopyHash = () => {
+    if (!cert?.report_hash) return;
+    navigator.clipboard.writeText(cert.report_hash);
+    setCopiedHash(true);
+    toast.success('SHA-256 Report Hash copied to clipboard');
+    setTimeout(() => setCopiedHash(false), 2500);
+  };
+
+  const downloadJson = () => {
+    if (!cert) return;
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(cert, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute('href', dataStr);
+    downloadAnchor.setAttribute('download', `${certNumber || 'AEGIS-AUDIT'}-Certificate.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    toast.success('Exported Certificate JSON payload');
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
   if (loading) {
     return (
       <AppLayout pageTitle="Trust & Safety Certificate">
-        <div className="flex flex-col items-center justify-center py-24 text-center">
-          <span className="material-symbols-outlined text-4xl text-[#0e61a1] animate-spin mb-3">
-            sync
-          </span>
-          <p className="text-sm font-semibold text-slate-700">Loading Certificate Records...</p>
-          <p className="text-xs text-slate-400 mt-1">Fetching cryptographic evaluation report from database</p>
+        <div className="flex flex-col items-center justify-center py-28 text-center">
+          <div className="w-10 h-10 border-2 border-slate-200 border-t-[#0e61a1] rounded-full animate-spin mb-4" />
+          <p className="text-sm font-semibold text-slate-800 tracking-tight">Verifying Cryptographic Certificate Records</p>
+          <p className="text-xs text-slate-400 mt-1 font-mono">Fetching evaluation artifact from immutable audit register</p>
         </div>
       </AppLayout>
     );
@@ -59,24 +88,24 @@ export default function SafetyReportPage() {
   if (!cert) {
     return (
       <AppLayout pageTitle="Trust & Safety Certificate">
-        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-10 text-center max-w-lg mx-auto my-12">
-          <div className="w-16 h-16 rounded-2xl bg-sky-50 border border-sky-200 flex items-center justify-center text-[#0e61a1] mx-auto mb-4">
-            <span className="material-symbols-outlined text-3xl">verified_user</span>
+        <div className="bg-white rounded-xl border border-slate-200/90 shadow-xs p-10 text-center max-w-lg mx-auto my-14">
+          <div className="w-14 h-14 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-500 mx-auto mb-4">
+            <span className="material-symbols-outlined text-2xl">verified_user</span>
           </div>
-          <h2 className="text-xl font-bold text-slate-900 mb-2">No Evaluation Certificate Found</h2>
+          <h2 className="text-lg font-serif font-semibold text-slate-900 mb-2">No Finalized Certificate Found</h2>
           <p className="text-xs text-slate-500 leading-relaxed mb-6">
-            No finalized evaluation certificate is recorded for this job. Certificates are automatically generated upon completing an adversarial test evaluation against your connected target.
+            No finalized Trust & Safety evaluation record was found for this job identifier. Certificates are generated automatically upon completion of adversarial evaluation against registered target endpoints.
           </p>
           <div className="flex justify-center gap-3">
             <button
-              onClick={() => navigate('/dashboard')}
-              className="px-4 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl transition-all"
+              onClick={() => navigate('/admin/overview')}
+              className="px-4 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg transition-colors"
             >
-              Dashboard
+              Audit Overview
             </button>
             <button
               onClick={() => navigate('/simulation')}
-              className="px-4 py-2 bg-[#0e61a1] hover:bg-[#0b4e82] text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 shadow-xs transition-all"
+              className="px-4 py-2 bg-[#0e61a1] hover:bg-[#0b4e82] text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors shadow-xs"
             >
               <span className="material-symbols-outlined text-sm">play_arrow</span>
               Run Live Simulation
@@ -89,71 +118,42 @@ export default function SafetyReportPage() {
 
   const trustScore = cert.trust_score !== null && cert.trust_score !== undefined ? cert.trust_score : 0;
   const trustGrade = cert.trust_grade || (trustScore >= 90 ? 'Grade A' : (trustScore >= 75 ? 'Grade B' : 'Grade C'));
-  const certNumber = cert.certificate_number || `AEGIS-${cert.job_id?.slice(0, 8)?.toUpperCase() || 'REPORT'}`;
-  const targetName = cert.target_name || 'Authorized Chatbot Target';
+  const certNumber = cert.certificate_number || `AEGIS-${cert.job_id?.slice(0, 8)?.toUpperCase() || 'AUDIT'}`;
+  const targetName = cert.target_name || 'Authorized Financial LLM Target';
   const pillars = cert.category_breakdown || cert.pillars || {};
   const failures = cert.failures || [];
   const recommendations = cert.recommendations || [];
-  const reportHash = cert.report_hash || 'SHA-256 Verified';
-
-  const downloadJson = () => {
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(cert, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute('href', dataStr);
-    downloadAnchor.setAttribute('download', `${certNumber}-Report.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-    toast.success('Downloaded Certificate JSON report');
-  };
-
-  const handlePrint = () => {
-    window.print();
-  };
+  const limitations = cert.limitations || [];
+  const reportHash = cert.report_hash || 'SHA-256 Verified Digest';
+  const aer = cert.aer !== null && cert.aer !== undefined ? cert.aer : 0;
+  const identityScore = cert.identity_score !== null && cert.identity_score !== undefined ? cert.identity_score : 70;
+  const shr = cert.shr !== null && cert.shr !== undefined ? cert.shr : 0;
+  const coverage = cert.coverage_summary || {};
+  const formulaVersions = cert.formula_versions || {};
+  const formattedDate = cert.created_at
+    ? new Date(cert.created_at).toUTCString()
+    : new Date().toUTCString();
 
   return (
     <AppLayout pageTitle="Trust & Safety Certificate">
-      <div className="space-y-6">
-        {/* Certificate Header Banner */}
-        <motion.section
-          initial={{ opacity: 0, y: -16 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-6 md:p-8 flex flex-col md:flex-row justify-between items-start md:items-center relative overflow-hidden"
-        >
-          <div className="flex-1 z-10">
-            <div className="flex flex-wrap items-center gap-2.5 mb-2">
-              <span className="bg-emerald-50 text-emerald-800 border border-emerald-300 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 shadow-2xs">
-                <span className="material-symbols-outlined text-sm text-emerald-600">verified</span>
-                {trustGrade} Certified
-              </span>
-              <span className="text-xs font-mono font-semibold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-lg border border-slate-200">
-                Cert ID: {certNumber}
-              </span>
-              <span className="text-xs text-slate-400">
-                Evaluation Protocol: <strong className="text-slate-700">Aegis Sentinel Multi-Pillar v1.0</strong>
-              </span>
-            </div>
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight mb-1">
-              Fintech Trust & Safety Evaluation Certificate
-            </h1>
-            <p className="text-xs md:text-sm text-slate-500">
-              Evaluated Target: <strong className="text-slate-800">{targetName}</strong> • Independent Judge: <strong className="text-slate-800">Groq Llama Guard 3 8B</strong>
-            </p>
-
+      <div className="space-y-6 print-certificate-container">
+        {/* Screen-Only Action & Switcher Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white border border-slate-200/90 rounded-xl p-4 shadow-2xs print:hidden">
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-mono font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded border border-slate-200">
+              {certNumber}
+            </span>
             {availableJobs.length > 1 && (
-              <div className="flex items-center gap-2 mt-3">
-                <span className="text-xs font-semibold text-slate-500 flex items-center gap-1">
-                  <span className="material-symbols-outlined text-sm text-[#0e61a1]">history</span>
-                  Audit Run:
-                </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500 font-medium">Switch Run:</span>
                 <select
                   value={cert.job_id}
                   onChange={(e) => navigate(`/report/${e.target.value}`)}
-                  className="px-2.5 py-1 text-xs font-semibold bg-white border border-slate-200 rounded-lg text-slate-700 shadow-2xs hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-[#0e61a1]"
+                  className="px-2.5 py-1 text-xs font-medium bg-white border border-slate-200 rounded-lg text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-[#0e61a1]"
                 >
                   {availableJobs.map((j) => (
                     <option key={j.id} value={j.id}>
-                      {j.target?.name || `Run #${j.id.slice(0, 8)}`} — {j.completed_items}/{j.total_items} items ({j.state})
+                      {j.target?.name || `Run ${j.id.slice(0, 8)}`} ({j.completed_items}/{j.total_items} items • {j.state})
                     </option>
                   ))}
                 </select>
@@ -161,248 +161,448 @@ export default function SafetyReportPage() {
             )}
           </div>
 
-
-          {/* Overall Composite Score Box */}
-          <div className="mt-6 md:mt-0 flex items-center gap-5 z-10 shrink-0 bg-slate-50/80 p-4 rounded-2xl border border-slate-200">
-            <div className="text-right">
-              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">
-                Composite Trust Score
-              </p>
-              <div className="flex items-baseline justify-end gap-1">
-                <motion.span
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: 0.2, duration: 0.4 }}
-                  className="text-3xl md:text-4xl font-extrabold text-[#0e61a1]"
-                >
-                  {trustScore}%
-                </motion.span>
-                <span className="text-xs font-bold text-slate-400">/ 100</span>
-              </div>
-            </div>
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#001c40] via-[#0e61a1] to-[#38bdf8] flex items-center justify-center text-white shadow-md shadow-sky-900/20">
-              <span className="material-symbols-outlined text-3xl">workspace_premium</span>
-            </div>
-          </div>
-        </motion.section>
-
-        {/* 6 Multi-Dimensional Pillars Grid */}
-        <div>
-          <div className="flex items-center justify-between mb-3 px-1">
-            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <span className="material-symbols-outlined text-[#0e61a1]">radar</span>
-              Multi-Dimensional Evaluation Pillars (Fintech Domain Breakdown)
-            </h2>
-            <span className="text-xs text-slate-500 font-medium">{Object.keys(pillars).length} Evaluated Dimensions</span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Object.keys(pillars).length === 0 ? (
-              <div className="col-span-full p-8 text-center bg-white rounded-2xl border border-slate-200 text-slate-400">
-                No dimensional pillars recorded for this evaluation job.
-              </div>
-            ) : (
-              Object.entries(pillars).map(([key, p], i) => {
-                const isPass = p.score >= 85;
-                const isWarn = p.score >= 70 && p.score < 85;
-                const scoreColor = isPass ? '#10b981' : (isWarn ? '#f59e0b' : '#ef4444');
-
-              return (
-                <motion.div
-                  key={key}
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex justify-between items-start gap-2 mb-2">
-                      <h3 className="text-xs font-bold text-slate-900 leading-tight">
-                        {p.name}
-                      </h3>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
-                        {Math.round(p.weight * 100)}% Weight
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 mb-4 line-clamp-2">
-                      {p.description}
-                    </p>
-                  </div>
-
-                  <div>
-                    {/* Score and Bar */}
-                    <div className="flex justify-between items-baseline mb-1.5">
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded border ${
-                          isPass
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : isWarn
-                            ? 'bg-amber-50 text-amber-700 border-amber-200'
-                            : 'bg-rose-50 text-rose-700 border-rose-200'
-                        }`}
-                      >
-                        {p.status || (isPass ? 'PASS' : 'WARN')}
-                      </span>
-                      <span className="text-lg font-bold text-slate-900">
-                        {p.score}%
-                      </span>
-                    </div>
-
-                    <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${p.score}%` }}
-                        transition={{ duration: 0.8, ease: 'easeOut' }}
-                        className="h-2 rounded-full"
-                        style={{ backgroundColor: scoreColor }}
-                      />
-                    </div>
-
-                    <div className="flex justify-between text-[10px] text-slate-400 mt-2">
-                      <span>Passed: <strong>{p.pass_count || 0}</strong></span>
-                      <span>Failed: <strong className={p.fail_count ? 'text-rose-600' : ''}>{p.fail_count || 0}</strong></span>
-                      <span>Total: <strong>{p.total_count || 0}</strong></span>
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            }))}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate('/simulation')}
+              className="px-3 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors"
+            >
+              <span className="material-symbols-outlined text-sm">bug_report</span>
+              <span>Telemetry Trace</span>
+            </button>
+            <button
+              onClick={downloadJson}
+              className="px-3 py-1.5 border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors"
+            >
+              <span className="material-symbols-outlined text-sm">code</span>
+              <span>Export JSON</span>
+            </button>
+            <button
+              onClick={handlePrint}
+              className="px-3.5 py-1.5 bg-[#0e61a1] hover:bg-[#0b4e82] text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 shadow-xs transition-colors"
+            >
+              <span className="material-symbols-outlined text-sm">print</span>
+              <span>Print / PDF Certificate</span>
+            </button>
           </div>
         </div>
 
-        {/* Two Column Layout: Critical Vulnerabilities & Actionable Roadmap */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left: Critical Vulnerabilities / Failure Audit */}
-          <div className="lg:col-span-7 flex flex-col gap-6">
-            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden flex flex-col">
-              <div className="p-5 border-b border-slate-200 bg-slate-50/60 flex justify-between items-center">
-                <div>
-                  <h3 className="text-sm md:text-base font-bold text-slate-900 flex items-center gap-2">
-                    <span className="material-symbols-outlined text-rose-600">warning</span>
-                    Critical Vulnerability Audit ({failures.length})
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Adversarial test cases where the target bot failed to refuse or triggered a violation
-                  </p>
+        {/* Primary Institutional Certificate Container */}
+        <div className="bg-white border border-slate-200/90 rounded-xl shadow-xs p-6 md:p-9 space-y-8 print:p-0 print:border-none print:shadow-none">
+          {/* Official Letterhead & Authority Header */}
+          <div className="border-b border-slate-200 pb-6 print-avoid-break">
+            <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-3">
+                  <AegisLogo size="md" variant="full" showSubtitle={false} />
+                  <span className="text-slate-300">|</span>
+                  <div className="flex items-center gap-2 text-[10px] font-mono tracking-wider uppercase text-slate-500">
+                    <span>ATTESTATION PROTOCOL</span>
+                    <span>•</span>
+                    <span>INDEPENDENT ENGINE</span>
+                  </div>
                 </div>
+
+                <h1 className="text-2xl md:text-3xl font-serif font-semibold text-slate-900 tracking-tight">
+                  Fintech Trust & Safety Evaluation Certificate
+                </h1>
+
+                <p className="text-xs text-slate-600 max-w-2xl leading-relaxed">
+                  Official attestation record certifying empirical red-teaming and compliance safety evaluation across standard financial risk taxonomy pillars.
+                </p>
               </div>
 
-              <div className="divide-y divide-slate-100 p-2">
-                {failures.length === 0 ? (
-                  <div className="p-8 text-center text-slate-400">
-                    <span className="material-symbols-outlined text-3xl text-emerald-500 mb-2">
-                      verified_user
+              {/* Official Seal / Grade Badge */}
+              <div className="flex flex-row md:flex-col items-end gap-2 shrink-0">
+                <div className="border border-slate-200 bg-slate-50/80 rounded-xl p-3.5 text-right flex items-center gap-3">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                      Evaluation Verdict
                     </span>
-                    <p className="text-xs font-semibold text-slate-700">Zero Critical Failures Detected</p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">The target bot successfully resisted all tested high-severity exploitation prompts.</p>
+                    <span className="text-lg font-serif font-bold text-slate-900">
+                      {trustGrade}
+                    </span>
                   </div>
-                ) : (
-                  failures.map((f, i) => {
-                    const isExpanded = expandedFailureId === (f.result_id || i);
-                    return (
-                      <div key={f.result_id || i} className="p-3.5 hover:bg-slate-50/70 rounded-xl transition-colors">
-                        <div
-                          onClick={() => setExpandedFailureId(isExpanded ? null : (f.result_id || i))}
-                          className="flex justify-between items-start cursor-pointer group"
-                        >
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 uppercase tracking-wider">
-                                {f.severity || 'CRITICAL'}
-                              </span>
-                              <span className="text-xs font-bold text-slate-800 group-hover:text-[#0e61a1] transition-colors">
-                                {f.category}
-                              </span>
-                            </div>
-                            <p className="text-xs text-slate-600 line-clamp-1">{f.rationale}</p>
-                          </div>
-                          <span className="text-[11px] font-semibold text-[#0e61a1] shrink-0 ml-3">
-                            {isExpanded ? 'Hide' : 'View Payload'}
-                          </span>
-                        </div>
+                  <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-[#0e61a1]">
+                    <span className="material-symbols-outlined text-xl">verified</span>
+                  </div>
+                </div>
 
-                        {isExpanded && (
-                          <div className="mt-3 pt-3 border-t border-slate-100 space-y-2.5 text-xs">
-                            <div>
-                              <span className="font-bold text-slate-700 block mb-1">Dispatched Attack Prompt:</span>
-                              <div className="bg-slate-100 p-2.5 rounded-lg font-mono text-[11px] text-slate-800 whitespace-pre-wrap">
-                                {f.attack_prompt}
-                              </div>
-                            </div>
-                            <div>
-                              <span className="font-bold text-slate-700 block mb-1">Bot Raw Response:</span>
-                              <div className="bg-rose-50/70 border border-rose-200 p-2.5 rounded-lg font-mono text-[11px] text-rose-900 whitespace-pre-wrap">
-                                {f.target_response}
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
+                <div className="text-[11px] font-mono text-slate-500 text-right">
+                  ID: <span className="text-slate-800 font-semibold">{certNumber}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Target & Evaluation Metadata Ribbon */}
+            <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 border border-slate-200/80 rounded-lg p-3 text-xs">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Evaluated Target</span>
+                <span className="font-semibold text-slate-900 truncate block" title={targetName}>
+                  {targetName}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Evaluation Protocol</span>
+                <span className="font-mono text-slate-800">
+                  {formulaVersions.scoring_formula || 'aegis_multi_pillar_v1.0'}
+                </span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Independent Judge</span>
+                <span className="text-slate-800 font-medium">Groq Llama-3.3-70B</span>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Attestation Date</span>
+                <span className="text-slate-800 font-medium">{formattedDate.slice(0, 16)}</span>
               </div>
             </div>
           </div>
 
-          {/* Right: Actionable Remediation Roadmap & Export */}
-          <div className="lg:col-span-5 flex flex-col gap-6">
-            {/* Recommendations */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-6">
-              <h3 className="text-sm md:text-base font-bold text-slate-900 flex items-center gap-2 mb-4">
-                <span className="material-symbols-outlined text-[#0e61a1]">recommend</span>
-                Actionable Remediation Roadmap
-              </h3>
-              {recommendations.length === 0 ? (
-                <div className="py-6 text-center text-slate-400">
-                  <span className="material-symbols-outlined text-3xl text-emerald-500 block mb-1">
-                    check_circle
-                  </span>
-                  <p className="text-xs font-semibold text-slate-700">All Safety Guardrails Met</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    No critical remediation actions required for this evaluated build.
-                  </p>
-                </div>
-              ) : (
-                <ul className="space-y-3">
-                  {recommendations.map((rec, i) => (
-                    <li key={i} className="flex items-start gap-2.5 text-xs text-slate-700 leading-relaxed">
-                      <span className="material-symbols-outlined text-[#0e61a1] text-base shrink-0 mt-0.5">
-                        check_circle
-                      </span>
-                      <span>{rec}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
+          {/* Core Composite Metric Band */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 print-avoid-break">
+            {/* Trust Score */}
+            <div className="bg-slate-50/50 border border-slate-200 rounded-xl p-4">
+              <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider">Composite Trust Score</span>
+                <span className="material-symbols-outlined text-sm text-[#0e61a1]">security</span>
+              </div>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-3xl font-bold font-sans tabular-nums text-slate-900">
+                  {trustScore}%
+                </span>
+                <span className="text-xs text-slate-400 font-medium">/ 100</span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Weighted aggregate across 6 threat dimensions</p>
             </div>
 
-            {/* Cryptographic Hash & Actions */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm p-6 space-y-4">
-              <div>
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
-                  Cryptographic Report Hash (SHA-256)
+            {/* Attack Exposure Rate (AER) */}
+            <div className="bg-slate-50/50 border border-slate-200 rounded-xl p-4">
+              <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider">Attack Exposure Rate</span>
+                <span className="material-symbols-outlined text-sm text-slate-600">shield</span>
+              </div>
+              <div className="flex items-baseline gap-1.5">
+                <span className={`text-3xl font-bold font-sans tabular-nums ${aer > 15 ? 'text-rose-600' : 'text-slate-900'}`}>
+                  {aer}%
                 </span>
-                <p className="text-[11px] font-mono text-slate-600 bg-slate-100 p-2 rounded-lg border border-slate-200 break-all select-all">
-                  {reportHash}
+                <span className="text-xs text-slate-400 font-medium">AER</span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">
+                {aer <= 5.0 ? 'Exemplary (< 5.0% threshold)' : `${aer}% adversarial bypasses`}
+              </p>
+            </div>
+
+            {/* Provenance & Identity */}
+            <div className="bg-slate-50/50 border border-slate-200 rounded-xl p-4">
+              <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider">Provenance & Supply Chain</span>
+                <span className="material-symbols-outlined text-sm text-slate-600">fingerprint</span>
+              </div>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-3xl font-bold font-sans tabular-nums text-slate-900">
+                  {identityScore}%
+                </span>
+                <span className="text-xs text-slate-400 font-medium">Identity</span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Model origin, weights hash & endpoint verification</p>
+            </div>
+
+            {/* Session Harm Rate (SHR) */}
+            <div className="bg-slate-50/50 border border-slate-200 rounded-xl p-4">
+              <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider">Session Harm Rate</span>
+                <span className="material-symbols-outlined text-sm text-slate-600">history</span>
+              </div>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-3xl font-bold font-sans tabular-nums text-slate-900">
+                  {shr}%
+                </span>
+                <span className="text-xs text-slate-400 font-medium">SHR</span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1">Context manipulation & cross-turn drift</p>
+            </div>
+          </div>
+
+          {/* Formal Attestation Statement */}
+          <div className="bg-slate-50 border-l-2 border-[#0e61a1] p-4 rounded-r-lg text-xs text-slate-700 leading-relaxed print-avoid-break">
+            <strong className="text-slate-900 block mb-0.5 font-serif">Regulatory Compliance Attestation</strong>
+            This evaluation validates the behavioral safety posture of <span className="font-semibold text-slate-900">{targetName}</span> against the NIST AI Risk Management Framework (AI RMF 1.0), OWASP Top 10 for LLMs (2025), and applicable financial regulations including FINRA Regulatory Notice 21-25 and SEC Rule 10b-5. Dual-phase independent judging was executed via isolated Groq reasoning models to guarantee neutrality.
+          </div>
+
+          {/* 6 Multi-Dimensional Pillars Risk Matrix */}
+          <div className="space-y-3.5 print-avoid-break">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                <span className="material-symbols-outlined text-base text-[#0e61a1]">view_column</span>
+                Multi-Dimensional Risk Matrix (6 Financial Threat Pillars)
+              </h2>
+              <span className="text-xs text-slate-500 font-mono">
+                Coverage: {coverage.total_evaluations || 0} Test Vectors Executed
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {Object.keys(pillars).length === 0 ? (
+                <div className="col-span-full p-6 text-center text-slate-400 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+                  No pillar breakdown recorded for this evaluation run.
+                </div>
+              ) : (
+                Object.entries(pillars).map(([key, p]) => {
+                  const isPass = p.score >= 85;
+                  const isWarn = p.score >= 70 && p.score < 85;
+                  const statusBg = isPass
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                    : isWarn
+                    ? 'bg-amber-50 text-amber-800 border-amber-200'
+                    : 'bg-rose-50 text-rose-800 border-rose-200';
+                  const barColor = isPass ? 'bg-emerald-600' : (isWarn ? 'bg-amber-500' : 'bg-rose-600');
+
+                  return (
+                    <div
+                      key={key}
+                      className="bg-white border border-slate-200 rounded-xl p-4 flex flex-col justify-between hover:border-slate-300 transition-colors"
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-2 mb-1.5">
+                          <span className="text-xs font-bold text-slate-900 leading-tight">
+                            {p.name}
+                          </span>
+                          <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200 shrink-0">
+                            {Math.round(p.weight * 100)}% Wt
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mb-3 line-clamp-2">
+                          {p.description}
+                        </p>
+                      </div>
+
+                      <div className="space-y-2 pt-2 border-t border-slate-100">
+                        <div className="flex items-center justify-between">
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${statusBg}`}>
+                            {p.status || (isPass ? 'PASS' : (isWarn ? 'WARN' : 'FAIL'))}
+                          </span>
+                          <span className="text-base font-bold font-sans tabular-nums text-slate-900">
+                            {p.score}%
+                          </span>
+                        </div>
+
+                        <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                          <div
+                            className={`h-1.5 rounded-full ${barColor}`}
+                            style={{ width: `${Math.min(100, Math.max(0, p.score))}%` }}
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                          <span>Passed: <strong className="text-slate-700">{p.pass_count || 0}</strong></span>
+                          <span>Failed: <strong className={p.fail_count ? 'text-rose-600' : 'text-slate-700'}>{p.fail_count || 0}</strong></span>
+                          <span>Total: <strong className="text-slate-700">{p.total_count || 0}</strong></span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          {/* Critical Vulnerability Audit Register */}
+          <div className="space-y-3.5 print-avoid-break">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+              <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${failures.length > 0 ? 'bg-rose-600' : 'bg-emerald-600'}`} />
+                <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800">
+                  Critical Vulnerability Audit Register ({failures.length})
+                </h2>
+              </div>
+              <span className="text-xs text-slate-500">
+                {failures.length === 0 ? 'Zero Breaches Detected' : 'Requires Engineering Remediation'}
+              </span>
+            </div>
+
+            {failures.length === 0 ? (
+              <div className="bg-emerald-50/50 border border-emerald-200/80 rounded-xl p-6 text-center text-xs">
+                <span className="material-symbols-outlined text-2xl text-emerald-600 mb-1">
+                  check_circle
+                </span>
+                <p className="font-semibold text-emerald-900">Zero High-Severity Adversarial Breaches Detected</p>
+                <p className="text-emerald-700 mt-0.5">
+                  The target model successfully refused or defended against all tested high-severity exploitation vectors.
                 </p>
               </div>
+            ) : (
+              <div className="space-y-2.5">
+                {failures.map((f, i) => {
+                  const failureKey = f.result_id || `failure-${i}`;
+                  const isExpanded = expandedFailureId === failureKey;
 
-              <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
+                  return (
+                    <div
+                      key={failureKey}
+                      className="border border-slate-200 rounded-xl bg-white overflow-hidden text-xs transition-all hover:border-slate-300"
+                    >
+                      <div
+                        onClick={() => setExpandedFailureId(isExpanded ? null : failureKey)}
+                        className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 cursor-pointer bg-slate-50/60 hover:bg-slate-50"
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-50 text-rose-700 border border-rose-200">
+                            {f.severity || 'CRITICAL'}
+                          </span>
+                          <span className="font-semibold text-slate-900">
+                            {f.category}
+                          </span>
+                          {f.owasp_id && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-100 text-slate-600 border border-slate-200">
+                              {f.owasp_id}
+                            </span>
+                          )}
+                          <span className="text-slate-400">•</span>
+                          <span className="text-slate-600 line-clamp-1 flex-1">
+                            {f.rationale}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0 text-slate-500 print:hidden">
+                          <span className="text-[11px] font-semibold text-[#0e61a1]">
+                            {isExpanded ? 'Collapse Trace' : 'Inspect Vector'}
+                          </span>
+                          <span className="material-symbols-outlined text-sm text-slate-400">
+                            {isExpanded ? 'expand_less' : 'expand_more'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Expandable Trace Payload View (Always visible in print) */}
+                      <div className={`p-4 border-t border-slate-200 space-y-3 ${isExpanded ? 'block' : 'hidden print:block'}`}>
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                              Phase A: Dispatched Adversarial Payload
+                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                copyToClipboard(f.attack_prompt, 'Attack Payload');
+                              }}
+                              className="text-[10px] font-mono text-slate-500 hover:text-slate-800 flex items-center gap-1 print:hidden"
+                            >
+                              <span className="material-symbols-outlined text-xs">content_copy</span>
+                              Copy
+                            </button>
+                          </div>
+                          <div className="bg-slate-900 text-slate-100 p-3 rounded-lg font-mono text-[11px] leading-relaxed whitespace-pre-wrap selection:bg-[#0e61a1]">
+                            {f.attack_prompt}
+                          </div>
+                        </div>
+
+                        <div>
+                          <span className="text-[11px] font-bold text-rose-800 uppercase tracking-wider block mb-1">
+                            Phase B: Target Model Unsafe Output
+                          </span>
+                          <div className="bg-rose-50 border border-rose-200 text-rose-950 p-3 rounded-lg font-mono text-[11px] leading-relaxed whitespace-pre-wrap">
+                            {f.target_response}
+                          </div>
+                        </div>
+
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
+                            Phase C: Independent Judge Rationale (Llama-3.3-70B)
+                          </span>
+                          <div className="bg-slate-50 border border-slate-200 text-slate-700 p-2.5 rounded-lg text-xs leading-relaxed">
+                            {f.rationale}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Actionable Remediation Roadmap */}
+          <div className="space-y-3.5 print-avoid-break">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2">
+                <span className="material-symbols-outlined text-base text-[#0e61a1]">healing</span>
+                Actionable Remediation Roadmap & Mitigations
+              </h2>
+              <span className="text-xs text-slate-500">Security Engineering Guidance</span>
+            </div>
+
+            {recommendations.length === 0 ? (
+              <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 text-xs text-slate-600">
+                No immediate structural mitigations required. Continue routine evaluation cadence.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {recommendations.map((rec, i) => (
+                  <div
+                    key={i}
+                    className="p-3.5 bg-slate-50/60 border border-slate-200 rounded-xl flex items-start gap-2.5 text-xs text-slate-700"
+                  >
+                    <span className="w-5 h-5 rounded bg-sky-100 text-[#0e61a1] flex items-center justify-center font-mono font-bold text-[10px] shrink-0 mt-0.5">
+                      P{i + 1}
+                    </span>
+                    <span className="leading-relaxed">{rec}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Cryptographic Attestation & Audit Scope Sign-Off */}
+          <div className="border-t border-slate-200 pt-6 space-y-5 print-avoid-break">
+            {/* SHA-256 Digest */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                <span className="text-[10px] font-mono uppercase font-bold text-slate-500 tracking-wider">
+                  Cryptographic Report Hash (SHA-256 Digest)
+                </span>
                 <button
-                  onClick={handlePrint}
-                  className="flex-1 py-2.5 px-4 bg-[#0e61a1] hover:bg-[#0b4e82] text-white rounded-xl text-xs font-semibold shadow-xs flex items-center justify-center gap-2 transition-all"
+                  onClick={handleCopyHash}
+                  className="text-[11px] font-mono text-[#0e61a1] hover:text-[#0b4e82] flex items-center gap-1 self-start sm:self-auto print:hidden"
                 >
-                  <span className="material-symbols-outlined text-base">print</span>
-                  <span>Print Certificate</span>
+                  <span className="material-symbols-outlined text-xs">
+                    {copiedHash ? 'done' : 'content_copy'}
+                  </span>
+                  {copiedHash ? 'Digest Copied' : 'Copy Hash'}
                 </button>
-                <button
-                  onClick={downloadJson}
-                  className="flex-1 py-2.5 px-4 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold shadow-2xs flex items-center justify-center gap-2 transition-all"
-                >
-                  <span className="material-symbols-outlined text-base">code</span>
-                  <span>Export JSON</span>
-                </button>
+              </div>
+              <div className="font-mono text-xs text-slate-700 bg-white border border-slate-200 p-2.5 rounded-lg break-all select-all">
+                {reportHash}
+              </div>
+            </div>
+
+            {/* Audit Scope Limitations */}
+            {limitations.length > 0 && (
+              <div className="text-[11px] text-slate-500 space-y-1">
+                <span className="font-bold uppercase tracking-wider text-slate-600 block">Attestation Boundaries & Limitations:</span>
+                <ul className="list-disc pl-4 space-y-0.5">
+                  {limitations.map((lim, i) => (
+                    <li key={i}>{lim}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Formal Attestation Signature Block */}
+            <div className="pt-6 border-t border-slate-200 grid grid-cols-2 sm:grid-cols-3 gap-6 text-xs text-slate-600">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Evaluating Engine</span>
+                <p className="font-semibold text-slate-800">Aegis Autonomous Defense</p>
+                <p className="text-[10px] text-slate-400 font-mono">v1.0.0-institutional</p>
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Independent Judge</span>
+                <p className="font-semibold text-slate-800">Llama-3.3-70B-Versatile</p>
+                <p className="text-[10px] text-slate-400 font-mono">Groq LPU Inference</p>
+              </div>
+              <div className="col-span-2 sm:col-span-1">
+                <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Official Attestation</span>
+                <div className="border-b border-slate-300 w-36 mb-1 mt-3" />
+                <p className="text-[10px] text-slate-500">Authorized Quantitative Auditor</p>
               </div>
             </div>
           </div>

@@ -1,67 +1,70 @@
 import { motion } from 'framer-motion';
 import { clsx } from 'clsx';
 
-const statusConfig = {
-  complete: { bg: 'bg-emerald-100 text-emerald-700', icon: 'check' },
-  active: { bg: 'bg-secondary text-white pulse-dot', icon: 'sync' },
-  pending: { bg: 'bg-surface-container-high text-on-surface-variant', icon: 'schedule' },
-};
-
-export default function TestCategoryTracker({ categories }) {
+export default function TestCategoryTracker({ categories = [] }) {
   return (
-    <div className="glass-panel p-6 rounded-xl flex-grow overflow-hidden flex flex-col">
-      <h3 className="text-title-lg font-bold text-primary mb-4">Test Categories</h3>
+    <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs space-y-4 flex-grow flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+        <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+          <span className="material-symbols-outlined text-base text-[#0e61a1]">checklist</span>
+          Threat Vector Checklist
+        </h3>
+        <span className="text-[10px] font-mono text-slate-500">
+          {categories.length} Vectors Tracked
+        </span>
+      </div>
 
-      <div className="flex-grow overflow-y-auto pr-2 space-y-4 relative">
-        {/* Vertical connector line */}
-        <div className="absolute left-4 top-4 bottom-4 w-0.5 bg-surface-container-high -z-10" />
-
+      <div className="space-y-3 flex-grow overflow-y-auto pr-1">
         {(!categories || categories.length === 0) ? (
-          <div className="flex flex-col items-center justify-center h-full py-12 text-center text-slate-400">
-            <span className="material-symbols-outlined text-3xl mb-2 text-slate-300">category</span>
-            <p className="text-xs font-semibold text-slate-600">No categories evaluated yet</p>
-            <p className="text-[11px] text-slate-400 max-w-[200px] mt-1">
-              Threat vectors will populate automatically as test cases are executed.
+          <div className="flex flex-col items-center justify-center py-12 text-center text-slate-400">
+            <span className="material-symbols-outlined text-3xl mb-2 text-slate-300">fact_check</span>
+            <p className="text-xs font-semibold text-slate-600">No vectors executed yet</p>
+            <p className="text-[11px] text-slate-400 max-w-[220px] mt-1">
+              Test vectors will stream in real-time as the red-team evaluation job executes.
             </p>
           </div>
         ) : (
           categories.map((cat, i) => {
-            const st = statusConfig[cat.status] || statusConfig.pending;
+            const isComplete = cat.status === 'complete';
+            const hasHarm = cat.detail && cat.detail.includes('harmful') && !cat.detail.includes('(0 harmful)');
+
             return (
               <motion.div
-                key={cat.id}
-                initial={{ opacity: 0, x: -16 }}
+                key={cat.id || i}
+                initial={{ opacity: 0, x: -8 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.15 }}
-                className={clsx('flex gap-4 items-start', cat.status === 'pending' && 'opacity-50')}
+                transition={{ delay: i * 0.05 }}
+                className={clsx(
+                  'p-3 rounded-lg border text-xs transition-all',
+                  isComplete
+                    ? hasHarm
+                      ? 'bg-rose-50/40 border-rose-200 text-slate-900'
+                      : 'bg-slate-50/70 border-slate-200 text-slate-900'
+                    : 'bg-sky-50/40 border-sky-200 text-slate-900'
+                )}
               >
-                <div
-                  className={clsx(
-                    'w-8 h-8 rounded-full flex items-center justify-center shrink-0 border-2 border-white z-10',
-                    st.bg
-                  )}
-                >
-                  <span className={clsx('material-symbols-outlined text-sm', cat.status === 'active' && 'animate-spin')}>
-                    {st.icon}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="space-y-0.5">
+                    <p className="font-bold text-slate-900 text-xs">
+                      {cat.name}
+                    </p>
+                    <p className="text-[11px] text-slate-500 font-mono">
+                      {cat.detail}
+                    </p>
+                  </div>
+                  <span
+                    className={clsx(
+                      'px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase shrink-0 border',
+                      isComplete
+                        ? hasHarm
+                          ? 'bg-rose-100 text-rose-800 border-rose-300'
+                          : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                        : 'bg-sky-100 text-sky-800 border-sky-300'
+                    )}
+                  >
+                    {isComplete ? (hasHarm ? 'BREACH' : 'PASSED') : 'IN PROGRESS'}
                   </span>
-                </div>
-                <div className="flex-1">
-                  <p className={clsx('text-body-lg font-bold', cat.status === 'active' ? 'text-primary' : 'text-on-surface')}>
-                    {cat.name}
-                  </p>
-                  <p className={clsx('text-body-md', cat.status === 'active' ? 'text-secondary' : 'text-on-surface-variant')}>
-                    {cat.detail}
-                  </p>
-                  {cat.status === 'active' && cat.progress !== undefined && (
-                    <div className="w-full bg-surface-container-high rounded-full h-1 mt-2 overflow-hidden">
-                      <motion.div
-                        className="bg-secondary h-1 rounded-full"
-                        initial={{ width: 0 }}
-                        animate={{ width: `${cat.progress}%` }}
-                        transition={{ duration: 1, ease: 'easeOut' }}
-                      />
-                    </div>
-                  )}
                 </div>
               </motion.div>
             );

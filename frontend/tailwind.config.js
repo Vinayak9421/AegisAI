@@ -67,7 +67,9 @@ export default {
         'base': '8px',
       },
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
+        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        serif: ['"IBM Plex Serif"', 'Georgia', 'serif'],
+        mono: ['"JetBrains Mono"', '"Fira Code"', 'ui-monospace', 'monospace'],
         'headline-lg': ['Inter'],
         'title-lg': ['Inter'],
         'body-lg': ['Inter'],

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useNavigate, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../store/AuthContext';
+import AegisLogo from '../../../shared/components/AegisLogo';
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -25,7 +26,7 @@ export default function RegisterPage() {
     }
 
     if (password.length < 6) {
-      toast.error('Password must be at least 6 characters');
+      toast.error('Password must contain at least 6 characters');
       return;
     }
 
@@ -41,7 +42,7 @@ export default function RegisterPage() {
         password,
         organization_name: organization.trim() || undefined,
       });
-      toast.success('Registration successful! Welcome to Aegis.');
+      toast.success('Enterprise workspace provisioned. Welcome to Aegis.');
 
       if (user && user.role === 'ADMIN') {
         navigate('/admin/overview');
@@ -49,52 +50,44 @@ export default function RegisterPage() {
         navigate('/user/dashboard');
       }
     } catch (err) {
-      toast.error(err.message || 'Registration failed');
+      toast.error(err.message || 'Workspace provisioning failed');
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[#f8fafc] text-slate-800 relative overflow-hidden">
-      {/* Background Soft Accents */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-[450px] h-[450px] bg-sky-200/40 rounded-full blur-[100px]" />
-        <div className="absolute top-1/2 -left-32 w-[400px] h-[400px] bg-blue-100/50 rounded-full blur-[100px]" />
-      </div>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-[#f8fafc] text-slate-800 relative select-none">
+      {/* Subtle Background Architectural Grid */}
+      <div className="fixed inset-0 pointer-events-none opacity-40 bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:20px_20px]" />
 
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: 'easeOut' }}
-        className="w-full max-w-md bg-white border border-slate-200/90 rounded-2xl shadow-xl relative z-10 overflow-hidden"
+        transition={{ duration: 0.35, ease: 'easeOut' }}
+        className="w-full max-w-md bg-white border border-slate-200/90 rounded-2xl shadow-xs relative z-10 overflow-hidden"
       >
-        {/* Top Glacier Gradient Accent Bar */}
-        <div className="h-1.5 w-full bg-gradient-to-r from-[#001c40] via-[#0e61a1] to-[#38bdf8]" />
+        {/* Institutional Blue Top Accent Bar */}
+        <div className="h-1 w-full bg-[#0e61a1]" />
 
-        <div className="p-8">
+        <div className="p-7 sm:p-9">
           {/* Logo & Header */}
-          <div className="text-center mb-8">
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              className="relative w-14 h-14 mx-auto mb-4"
-            >
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#001c40] via-[#0e61a1] to-[#38bdf8] flex items-center justify-center text-white shadow-md shadow-sky-900/20">
-                <span className="material-symbols-outlined text-white text-3xl">app_registration</span>
-              </div>
-            </motion.div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-              Create Aegis Account
+          <div className="text-center mb-6">
+            <div className="flex justify-center mb-3">
+              <AegisLogo size="xl" showSubtitle={true} subtitleText="TENANT REGISTRATION & ONBOARDING" />
+            </div>
+            <h1 className="text-xl font-serif font-semibold text-slate-900 tracking-tight mt-3">
+              Provision Enterprise Workspace
             </h1>
-            <p className="text-xs text-slate-500 mt-1 font-medium tracking-wide uppercase">
-              Autonomous Red-Teaming & Compliance Workspace
+            <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+              Register an organization workspace to execute multi-turn adversarial stress-tests and issue cryptographic Trust & Safety certificates.
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-3.5">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                Work Email Address *
+              <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                Authorized Work Email *
               </label>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-lg">
@@ -106,14 +99,14 @@ export default function RegisterPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="analyst@fintech.com"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0e61a1] transition-all"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3.5 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0e61a1] focus:ring-1 focus:ring-[#0e61a1] transition-all font-mono"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                Organization / Institution Name
+              <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                Organization / Financial Institution
               </label>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-lg">
@@ -123,15 +116,15 @@ export default function RegisterPage() {
                   type="text"
                   value={organization}
                   onChange={(e) => setOrganization(e.target.value)}
-                  placeholder="Global Fintech Ltd."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0e61a1] transition-all"
+                  placeholder="Apex Capital Markets Ltd."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3.5 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0e61a1] focus:ring-1 focus:ring-[#0e61a1] transition-all"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                Password (min 6 characters) *
+              <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                Master Security Password (min 6 chars) *
               </label>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-lg">
@@ -142,15 +135,15 @@ export default function RegisterPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-10 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0e61a1] transition-all"
+                  placeholder="••••••••••••"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-10 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0e61a1] focus:ring-1 focus:ring-[#0e61a1] transition-all font-mono"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 transition-colors"
+                  className="absolute right-3 top-2 text-slate-400 hover:text-slate-600 transition-colors"
                 >
-                  <span className="material-symbols-outlined text-lg">
+                  <span className="material-symbols-outlined text-base">
                     {showPassword ? 'visibility_off' : 'visibility'}
                   </span>
                 </button>
@@ -158,60 +151,65 @@ export default function RegisterPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1.5">
-                Confirm Password *
+              <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
+                Confirm Master Password *
               </label>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-lg">
-                  lock_reset
+                  verified_user
                 </span>
                 <input
                   type={showConfirmPassword ? 'text' : 'password'}
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-10 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0e61a1] transition-all"
+                  placeholder="••••••••••••"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-10 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0e61a1] focus:ring-1 focus:ring-[#0e61a1] transition-all font-mono"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 transition-colors"
+                  className="absolute right-3 top-2 text-slate-400 hover:text-slate-600 transition-colors"
                 >
-                  <span className="material-symbols-outlined text-lg">
+                  <span className="material-symbols-outlined text-base">
                     {showConfirmPassword ? 'visibility_off' : 'visibility'}
                   </span>
                 </button>
               </div>
             </div>
 
-            <motion.button
-              whileHover={{ scale: 1.01 }}
-              whileTap={{ scale: 0.99 }}
+            {/* Tenant Isolation Note */}
+            <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] text-slate-600">
+              <span className="font-semibold text-slate-800 block mb-0.5">Tenant Security Isolation</span>
+              Provisioning allocates an isolated cryptographic database partition and encrypted credential vault.
+            </div>
+
+            <button
               type="submit"
               disabled={submitting}
-              className={`w-full mt-4 py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 text-white bg-[#0e61a1] hover:bg-[#0b4e82] shadow-sm hover:shadow transition-all ${
+              className={`w-full mt-2 py-2.5 rounded-lg font-semibold text-xs flex items-center justify-center gap-2 text-white bg-[#0e61a1] hover:bg-[#0b4e82] shadow-xs transition-colors ${
                 submitting ? 'opacity-70 cursor-not-allowed' : ''
               }`}
             >
               {submitting ? (
                 <>
-                  <span className="material-symbols-outlined animate-spin text-lg">refresh</span>
-                  <span>Creating Account...</span>
+                  <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>Provisioning Workspace...</span>
                 </>
               ) : (
                 <>
-                  <span>Complete Registration</span>
-                  <span className="material-symbols-outlined text-lg">arrow_forward</span>
+                  <span>Create Enterprise Workspace</span>
+                  <span className="material-symbols-outlined text-base">arrow_forward</span>
                 </>
               )}
-            </motion.button>
+            </button>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-slate-100 text-center text-xs text-slate-500">
-            Already registered?{' '}
-            <Link to="/login" className="text-[#0e61a1] hover:underline font-semibold transition-colors">
-              Sign in to existing workspace
+          {/* Footer link */}
+          <div className="mt-6 pt-5 border-t border-slate-100 text-center text-xs text-slate-500">
+            Existing registered auditor?{' '}
+            <Link to="/login" className="text-[#0e61a1] hover:text-[#0b4e82] font-semibold transition-colors">
+              Sign in to control center
             </Link>
           </div>
         </div>
