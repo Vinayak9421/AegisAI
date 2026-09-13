@@ -1,5 +1,4 @@
-"""Groq / Llama-3.3-70B independent judge adapter implementation."""
-
+import asyncio
 import json
 import re
 import unicodedata
@@ -107,18 +106,49 @@ class GroqJudgeAdapter(JudgePort):
             "max_tokens": 512,
         }
 
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                resp = await client.post(self.api_url, json=payload, headers=headers)
-                if resp.status_code == 200:
-                    raw_content = resp.json()["choices"][0]["message"]["content"]
-                    return self._parse_and_validate_verdict(raw_content, input_data)
+        max_retries = 3
+        backoff_delays = [2.0, 4.0, 8.0]
+
+        for attempt in range(max_retries + 1):
+            try:
+                async with httpx.AsyncClient(timeout=self.timeout) as client:
+                    resp = await client.post(self.api_url, json=payload, headers=headers)
+                    if resp.status_code == 200:
+                        raw_content = resp.json()["choices"][0]["message"]["content"]
+                        return self._parse_and_validate_verdict(raw_content, input_data)
+                    elif resp.status_code == 429 or resp.status_code in (502, 503, 504):
+                        if attempt < max_retries:
+                            retry_after = resp.headers.get("retry-after")
+                            wait_time = float(retry_after) if retry_after and retry_after.isdigit() else backoff_delays[attempt]
+                            logger.warning(
+                                f"Groq API returned HTTP {resp.status_code} (attempt {attempt + 1}/{max_retries + 1}). "
+                                f"Backing off for {wait_time}s before retry..."
+                            )
+                            await asyncio.sleep(wait_time)
+                            continue
+                        else:
+                            logger.warning(
+                                f"Groq API rate limit/transient error persisted after {max_retries} retries (HTTP {resp.status_code}). "
+                                f"Falling back to deterministic heuristic judge."
+                            )
+                            return self._heuristic_fallback_evaluate(input_data)
+                    else:
+                        logger.warning(f"Groq API returned non-retryable HTTP {resp.status_code}, falling back to heuristic judge.")
+                        return self._heuristic_fallback_evaluate(input_data)
+            except (httpx.TimeoutException, httpx.RequestError) as e:
+                if attempt < max_retries:
+                    wait_time = backoff_delays[attempt]
+                    logger.warning(
+                        f"Groq API network/timeout error {type(e).__name__} (attempt {attempt + 1}/{max_retries + 1}). "
+                        f"Retrying in {wait_time}s..."
+                    )
+                    await asyncio.sleep(wait_time)
+                    continue
                 else:
-                    logger.warning(f"Groq API returned HTTP {resp.status_code}, falling back to heuristic judge.")
+                    logger.warning(f"Groq API request failed after {max_retries} retries: {e}, falling back to heuristic evaluation.")
                     return self._heuristic_fallback_evaluate(input_data)
-        except (httpx.TimeoutException, httpx.RequestError) as e:
-            logger.warning(f"Groq API request failed: {e}, falling back to heuristic evaluation.")
-            return self._heuristic_fallback_evaluate(input_data)
+
+        return self._heuristic_fallback_evaluate(input_data)
 
     def _parse_and_validate_verdict(self, raw_json_str: str, input_data: JudgeInput) -> JudgeOutput:
         """Parse, validate, and normalize JSON output into a JudgeOutput schema with regex repair."""

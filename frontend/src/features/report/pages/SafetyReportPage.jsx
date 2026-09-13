@@ -15,6 +15,10 @@ export default function SafetyReportPage() {
   const [loading, setLoading] = useState(true);
   const [expandedFailureId, setExpandedFailureId] = useState(null);
   const [copiedHash, setCopiedHash] = useState(false);
+  const [filterCategory, setFilterCategory] = useState('ALL');
+  const [filterSeverity, setFilterSeverity] = useState('ALL');
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 8;
 
   useEffect(() => {
     async function loadCertificate() {
@@ -122,6 +126,108 @@ export default function SafetyReportPage() {
   const targetName = cert.target_name || 'Authorized Financial LLM Target';
   const pillars = cert.category_breakdown || cert.pillars || {};
   const failures = cert.failures || [];
+  const failureCategories = ['ALL', ...Array.from(new Set(failures.map((f) => f.category).filter(Boolean)))];
+  const failureSeverities = ['ALL', ...Array.from(new Set(failures.map((f) => f.severity || 'CRITICAL').filter(Boolean)))];
+
+  const filteredFailures = failures.filter((f) => {
+    if (filterCategory !== 'ALL' && f.category !== filterCategory) return false;
+    if (filterSeverity !== 'ALL' && (f.severity || 'CRITICAL') !== filterSeverity) return false;
+    return true;
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filteredFailures.length / PAGE_SIZE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * PAGE_SIZE;
+  const paginatedFailures = filteredFailures.slice(startIndex, startIndex + PAGE_SIZE);
+
+  const renderFailureCard = (f, i, forceExpanded = false) => {
+    const failureKey = f.result_id || `failure-${i}`;
+    const isExpanded = forceExpanded || expandedFailureId === failureKey;
+
+    return (
+      <div
+        key={failureKey}
+        className="border border-slate-200 rounded-xl bg-white overflow-hidden text-xs transition-all hover:border-slate-300 print-avoid-break"
+      >
+        <div
+          onClick={() => !forceExpanded && setExpandedFailureId(isExpanded ? null : failureKey)}
+          className={`p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${forceExpanded ? '' : 'cursor-pointer'} bg-slate-50/60 hover:bg-slate-50`}
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${
+                (f.severity || 'CRITICAL') === 'CRITICAL'
+                  ? 'bg-rose-50 text-rose-700 border-rose-200'
+                  : 'bg-amber-50 text-amber-700 border-amber-200'
+              }`}
+            >
+              {f.severity || 'CRITICAL'}
+            </span>
+            <span className="font-semibold text-slate-900">{f.category}</span>
+            {f.owasp_id && (
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-100 text-slate-600 border border-slate-200">
+                {f.owasp_id}
+              </span>
+            )}
+            <span className="text-slate-400">•</span>
+            <span className="text-slate-600 line-clamp-1 flex-1">{f.rationale}</span>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 text-slate-500 print:hidden">
+            <span className="text-[11px] font-semibold text-[#0e61a1]">
+              {isExpanded ? 'Collapse Trace' : 'Inspect Vector'}
+            </span>
+            <span className="material-symbols-outlined text-sm text-slate-400">
+              {isExpanded ? 'expand_less' : 'expand_more'}
+            </span>
+          </div>
+        </div>
+
+        {/* Expandable Trace Payload View (Always visible in print) */}
+        <div className={`p-4 border-t border-slate-200 space-y-3 ${isExpanded ? 'block' : 'hidden print:block'}`}>
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                Phase A: Dispatched Adversarial Payload
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  copyToClipboard(f.attack_prompt, 'Attack Payload');
+                }}
+                className="text-[10px] font-mono text-slate-500 hover:text-slate-800 flex items-center gap-1 print:hidden"
+              >
+                <span className="material-symbols-outlined text-xs">content_copy</span>
+                Copy
+              </button>
+            </div>
+            <div className="bg-slate-900 text-slate-100 p-3 rounded-lg font-mono text-[11px] leading-relaxed whitespace-pre-wrap selection:bg-[#0e61a1]">
+              {f.attack_prompt}
+            </div>
+          </div>
+
+          <div>
+            <span className="text-[11px] font-bold text-rose-800 uppercase tracking-wider block mb-1">
+              Phase B: Target Model Unsafe Output
+            </span>
+            <div className="bg-rose-50 border border-rose-200 text-rose-950 p-3 rounded-lg font-mono text-[11px] leading-relaxed whitespace-pre-wrap">
+              {f.target_response}
+            </div>
+          </div>
+
+          <div>
+            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
+              Phase C: Independent Judge Rationale (Llama-3.3-70B)
+            </span>
+            <div className="bg-slate-50 border border-slate-200 text-slate-700 p-2.5 rounded-lg text-xs leading-relaxed">
+              {f.rationale}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const recommendations = cert.recommendations || [];
   const limitations = cert.limitations || [];
   const reportHash = cert.report_hash || 'SHA-256 Verified Digest';
@@ -431,92 +537,113 @@ export default function SafetyReportPage() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-2.5">
-                {failures.map((f, i) => {
-                  const failureKey = f.result_id || `failure-${i}`;
-                  const isExpanded = expandedFailureId === failureKey;
-
-                  return (
-                    <div
-                      key={failureKey}
-                      className="border border-slate-200 rounded-xl bg-white overflow-hidden text-xs transition-all hover:border-slate-300"
-                    >
-                      <div
-                        onClick={() => setExpandedFailureId(isExpanded ? null : failureKey)}
-                        className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 cursor-pointer bg-slate-50/60 hover:bg-slate-50"
+              <div className="space-y-3">
+                {/* Filter Controls (Screen Only) */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl print:hidden">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] font-semibold text-slate-500 mr-1">Category:</span>
+                    {failureCategories.map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => {
+                          setFilterCategory(cat);
+                          setCurrentPage(1);
+                        }}
+                        className={`px-2.5 py-1 text-[11px] font-medium rounded-lg transition-colors ${
+                          filterCategory === cat
+                            ? 'bg-[#0e61a1] text-white font-semibold shadow-2xs'
+                            : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                        }`}
                       >
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-50 text-rose-700 border border-rose-200">
-                            {f.severity || 'CRITICAL'}
-                          </span>
-                          <span className="font-semibold text-slate-900">
-                            {f.category}
-                          </span>
-                          {f.owasp_id && (
-                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-slate-100 text-slate-600 border border-slate-200">
-                              {f.owasp_id}
-                            </span>
-                          )}
-                          <span className="text-slate-400">•</span>
-                          <span className="text-slate-600 line-clamp-1 flex-1">
-                            {f.rationale}
-                          </span>
-                        </div>
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
 
-                        <div className="flex items-center gap-2 shrink-0 text-slate-500 print:hidden">
-                          <span className="text-[11px] font-semibold text-[#0e61a1]">
-                            {isExpanded ? 'Collapse Trace' : 'Inspect Vector'}
-                          </span>
-                          <span className="material-symbols-outlined text-sm text-slate-400">
-                            {isExpanded ? 'expand_less' : 'expand_more'}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Expandable Trace Payload View (Always visible in print) */}
-                      <div className={`p-4 border-t border-slate-200 space-y-3 ${isExpanded ? 'block' : 'hidden print:block'}`}>
-                        <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
-                              Phase A: Dispatched Adversarial Payload
-                            </span>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                copyToClipboard(f.attack_prompt, 'Attack Payload');
-                              }}
-                              className="text-[10px] font-mono text-slate-500 hover:text-slate-800 flex items-center gap-1 print:hidden"
-                            >
-                              <span className="material-symbols-outlined text-xs">content_copy</span>
-                              Copy
-                            </button>
-                          </div>
-                          <div className="bg-slate-900 text-slate-100 p-3 rounded-lg font-mono text-[11px] leading-relaxed whitespace-pre-wrap selection:bg-[#0e61a1]">
-                            {f.attack_prompt}
-                          </div>
-                        </div>
-
-                        <div>
-                          <span className="text-[11px] font-bold text-rose-800 uppercase tracking-wider block mb-1">
-                            Phase B: Target Model Unsafe Output
-                          </span>
-                          <div className="bg-rose-50 border border-rose-200 text-rose-950 p-3 rounded-lg font-mono text-[11px] leading-relaxed whitespace-pre-wrap">
-                            {f.target_response}
-                          </div>
-                        </div>
-
-                        <div>
-                          <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
-                            Phase C: Independent Judge Rationale (Llama-3.3-70B)
-                          </span>
-                          <div className="bg-slate-50 border border-slate-200 text-slate-700 p-2.5 rounded-lg text-xs leading-relaxed">
-                            {f.rationale}
-                          </div>
-                        </div>
-                      </div>
+                  {failureSeverities.length > 2 && (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[11px] font-semibold text-slate-500">Severity:</span>
+                      <select
+                        value={filterSeverity}
+                        onChange={(e) => {
+                          setFilterSeverity(e.target.value);
+                          setCurrentPage(1);
+                        }}
+                        className="px-2 py-1 text-[11px] bg-white border border-slate-200 rounded-lg text-slate-700 focus:outline-none focus:ring-1 focus:ring-[#0e61a1]"
+                      >
+                        {failureSeverities.map((sev) => (
+                          <option key={sev} value={sev}>
+                            {sev}
+                          </option>
+                        ))}
+                      </select>
                     </div>
-                  );
-                })}
+                  )}
+                </div>
+
+                {/* Paginated Failures List (Screen) */}
+                <div className="space-y-2.5 print:hidden">
+                  {paginatedFailures.length === 0 ? (
+                    <div className="p-6 text-center text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl">
+                      No vulnerabilities match the selected filters ({filterCategory} / {filterSeverity}).
+                    </div>
+                  ) : (
+                    paginatedFailures.map((f, i) => renderFailureCard(f, startIndex + i))
+                  )}
+                </div>
+
+                {/* Complete Unpaginated Failures List (Print / PDF Export Only) */}
+                <div className="space-y-2.5 hidden print:block">
+                  {filteredFailures.map((f, i) => renderFailureCard(f, i, true))}
+                </div>
+
+                {/* Pagination Controls (Screen Only) */}
+                {filteredFailures.length > PAGE_SIZE && (
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 print:hidden text-xs text-slate-600">
+                    <span className="font-mono text-[11px]">
+                      Showing <strong>{startIndex + 1}</strong>–
+                      <strong>{Math.min(startIndex + PAGE_SIZE, filteredFailures.length)}</strong> of{' '}
+                      <strong>{filteredFailures.length}</strong> findings
+                      {filteredFailures.length !== failures.length && ` (filtered from ${failures.length})`}
+                    </span>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                        disabled={safeCurrentPage === 1}
+                        className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium text-slate-700 flex items-center gap-1"
+                      >
+                        <span className="material-symbols-outlined text-xs">chevron_left</span>
+                        Prev
+                      </button>
+
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: totalPages }, (_, idx) => idx + 1).map((p) => (
+                          <button
+                            key={p}
+                            onClick={() => setCurrentPage(p)}
+                            className={`w-7 h-7 rounded-lg text-xs font-mono font-medium transition-colors ${
+                              p === safeCurrentPage
+                                ? 'bg-[#0e61a1] text-white font-bold'
+                                : 'border border-slate-200 bg-white hover:bg-slate-50 text-slate-700'
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        ))}
+                      </div>
+
+                      <button
+                        onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={safeCurrentPage === totalPages}
+                        className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed font-medium text-slate-700 flex items-center gap-1"
+                      >
+                        Next
+                        <span className="material-symbols-outlined text-xs">chevron_right</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

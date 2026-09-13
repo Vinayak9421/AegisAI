@@ -23,6 +23,7 @@ export default function ConnectChatbotPage() {
   // Async states
   const [testing, setTesting] = useState(false);
   const [createdTarget, setCreatedTarget] = useState(null);
+  const [probeData, setProbeData] = useState(null);
   const [startingScan, setStartingScan] = useState(false);
 
   // Auto-load latest target on component mount
@@ -40,6 +41,15 @@ export default function ConnectChatbotPage() {
           }
           if (verifiedTarget.connector_profile) {
             setConnectorProfile(verifiedTarget.connector_profile);
+          }
+          if (verifiedTarget.validation_report && Object.keys(verifiedTarget.validation_report).length > 0) {
+            setProbeData({
+              status: verifiedTarget.status,
+              latency_ms: verifiedTarget.validation_report.latency_ms,
+              capability_report: verifiedTarget.validation_report.capability_report || verifiedTarget.validation_report,
+              resolved_host_hash: verifiedTarget.validation_report.resolved_host_hash,
+              safe_error_class: verifiedTarget.validation_report.safe_error_class,
+            });
           }
         }
       } catch (e) {
@@ -152,18 +162,26 @@ export default function ConnectChatbotPage() {
       }
 
       // Pre-flight target verification probe
+      let probeReport = null;
       try {
-        await targetService.verifyTarget(target.id);
+        probeReport = await targetService.verifyTarget(target.id);
+        setProbeData(probeReport);
       } catch (valErr) {
         console.warn('Verification diagnostics note:', valErr);
+        probeReport = {
+          status: 'INVALID_CONFIG',
+          safe_error_class: valErr.message || 'Connection refused or timeout',
+        };
+        setProbeData(probeReport);
       }
 
       const refreshed = await targetService.getTarget(target.id);
       setCreatedTarget(refreshed);
       if (refreshed.status === 'VERIFIED') {
-        toast.success(`Target "${refreshed.name}" verified. Pre-flight probe successful.`);
+        const lat = probeReport?.latency_ms ? ` (${Math.round(probeReport.latency_ms)}ms)` : '';
+        toast.success(`Target "${refreshed.name}" verified successfully${lat}. Pre-flight probe passed.`);
       } else {
-        toast.error(`Verification status: ${refreshed.status}. Review endpoint URL and credentials.`);
+        toast.error(`Verification status: ${refreshed.status}. ${probeReport?.safe_error_class || 'Check endpoint reachability.'}`);
       }
     } catch (err) {
       toast.error(err.message || 'Failed to register and verify target endpoint');
@@ -452,37 +470,72 @@ export default function ConnectChatbotPage() {
                 <span>Pre-flight Probe Status</span>
                 <span
                   className={`px-2 py-0.5 text-[10px] font-mono font-bold rounded border ${
-                    createdTarget?.status === 'VERIFIED'
+                    (probeData?.status || createdTarget?.status) === 'VERIFIED'
                       ? 'bg-emerald-50 text-emerald-800 border-emerald-300'
+                      : (probeData?.status || createdTarget?.status) === 'VALIDATION_FAILED'
+                      ? 'bg-rose-50 text-rose-800 border-rose-300'
                       : 'bg-slate-50 text-slate-600 border-slate-200'
                   }`}
                 >
-                  {createdTarget?.status || 'UNTESTED'}
+                  {probeData?.status || createdTarget?.status || 'UNTESTED'}
                 </span>
               </h3>
 
               <div className="bg-slate-50 rounded-lg p-3 border border-slate-200 space-y-2 text-xs font-mono">
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-slate-500">HTTP Status:</span>
                   <span className="text-slate-800 font-bold">
-                    {createdTarget?.validation_report?.http_status ? `HTTP ${createdTarget.validation_report.http_status}` : '200 OK (Simulated)'}
+                    {(() => {
+                      const st = probeData?.capability_report?.http_status ?? createdTarget?.validation_report?.http_status;
+                      if (testing) return <span className="text-blue-600 animate-pulse">Probing...</span>;
+                      if (st) return `HTTP ${st} ${st < 400 ? 'OK' : 'FAILED'}`;
+                      if (probeData?.status === 'VERIFIED' || createdTarget?.status === 'VERIFIED') return 'HTTP 200 OK';
+                      return 'Untested';
+                    })()}
                   </span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-slate-500">Round-Trip:</span>
                   <span className="text-slate-800">
-                    {createdTarget?.validation_report?.latency_ms ? `${createdTarget.validation_report.latency_ms}ms` : '<300ms'}
+                    {(() => {
+                      const lat = probeData?.latency_ms ?? probeData?.capability_report?.latency_ms ?? createdTarget?.validation_report?.latency_ms;
+                      if (testing) return <span className="text-blue-600">Measuring...</span>;
+                      if (lat != null) return `${Math.round(lat)}ms`;
+                      return '—';
+                    })()}
                   </span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-slate-500">SSRF Bounding:</span>
-                  <span className="text-emerald-700 font-semibold">Enforced (RFC 1918)</span>
+                  <span className={probeData || createdTarget?.validation_report ? "text-emerald-700 font-semibold" : "text-slate-400"}>
+                    {probeData || createdTarget?.validation_report ? 'Enforced (RFC 1918)' : 'Pending Probe'}
+                  </span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span className="text-slate-500">Protocol:</span>
-                  <span className="text-slate-800">TLS 1.3 / HTTPS</span>
+                  <span className="text-slate-800 font-mono">
+                    {apiUrl?.startsWith('https') ? 'TLS 1.3 / HTTPS' : apiUrl?.startsWith('http') ? 'HTTP / Plain' : 'HTTPS'}
+                  </span>
                 </div>
+                {(probeData?.resolved_host_hash || createdTarget?.validation_report?.resolved_host_hash) && (
+                  <div className="flex justify-between items-center pt-1 border-t border-slate-200 text-[10px]">
+                    <span className="text-slate-400">Host Hash:</span>
+                    <span className="text-slate-600 font-mono truncate max-w-[160px]" title={probeData?.resolved_host_hash || createdTarget?.validation_report?.resolved_host_hash}>
+                      {(probeData?.resolved_host_hash || createdTarget?.validation_report?.resolved_host_hash || '').slice(0, 16)}...
+                    </span>
+                  </div>
+                )}
               </div>
+
+              {probeData?.safe_error_class && (
+                <div className="p-2.5 rounded border border-rose-200 bg-rose-50/80 text-[11px] font-mono text-rose-800">
+                  <div className="font-bold flex items-center gap-1.5 text-rose-900 mb-0.5">
+                    <span className="material-symbols-outlined text-xs">warning</span>
+                    Probe Diagnostic Fault
+                  </div>
+                  <div className="break-all text-[10px] leading-tight">{probeData.safe_error_class}</div>
+                </div>
+              )}
 
               {createdTarget && (
                 <p className="text-[11px] text-slate-500">

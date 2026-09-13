@@ -277,7 +277,8 @@ class EvaluationRunner:
 
         target = job.target
         rpm = target.rate_limit_requests_per_minute if target and target.rate_limit_requests_per_minute else 12
-        pacing_delay = round(60.0 / max(rpm, 1), 1)
+        # Bound pacing delay to at least 2.5s to prevent burst exhaustion against Groq/judge rate limits
+        pacing_delay = max(round(60.0 / max(rpm, 1), 1), 2.5)
 
         logger.info(
             f"Running evaluation execution loop for job {job_id} "

@@ -309,7 +309,8 @@ class TargetService(BaseService):
             "target_id": target.id,
             "status": target.status,
             "resolved_host_hash": report.resolved_host_hash,
-            "capability_report": report.capabilities,
+            "capability_report": report.capabilities or {},
             "safe_error_class": report.safe_error_class,
+            "latency_ms": (report.capabilities or {}).get("latency_ms"),
             "checked_at": now,
         }

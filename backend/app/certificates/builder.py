@@ -85,6 +85,9 @@ class CertificateBuilder(CertificateBuilderPort):
         )
         existing = self.db.scalars(stmt).first()
 
+        if existing and existing.status == CertificateStatus.READY:
+            return existing
+
         data = self.build_certificate_data(job_id)
 
         if existing:
