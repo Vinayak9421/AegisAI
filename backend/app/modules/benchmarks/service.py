@@ -1,9 +1,11 @@
-"""Benchmark service implementing source management, test case ingestion, content hashing, and stratified sampling."""
-
 from collections import defaultdict
+import csv
 import datetime
 import hashlib
+import io
+import json
 import random
+import time
 from typing import Any, Dict, List, Optional, Tuple
 import uuid
 from sqlalchemy import func, select
@@ -39,12 +41,13 @@ def compute_content_hash(category: str, subcategory: str, prompt_template: str) 
     return hashlib.sha256(normalized_content.encode("utf-8")).hexdigest()
 
 
-def compute_manifest_hash(hashes: List[str]) -> str:
+def compute_manifest_hash(hashes: List[str], source_id: Optional[uuid.UUID] = None) -> str:
     """Compute deterministic manifest hash across all sorted test case hashes in a source."""
+    prefix = f"{source_id}:" if source_id else ""
     if not hashes:
-        return hashlib.sha256(b"empty_manifest").hexdigest()
+        return hashlib.sha256(f"{prefix}empty_manifest".encode("utf-8")).hexdigest()
     sorted_hashes = sorted(hashes)
-    concatenated = "".join(sorted_hashes)
+    concatenated = prefix + "".join(sorted_hashes)
     return hashlib.sha256(concatenated.encode("utf-8")).hexdigest()
 
 
@@ -219,7 +222,7 @@ class BenchmarkService(BaseService):
 
         # Update source manifest hash across all current test cases
         all_hashes = list(existing_hashes)
-        new_manifest_hash = compute_manifest_hash(all_hashes)
+        new_manifest_hash = compute_manifest_hash(all_hashes, source_id=source.id)
         source.manifest_hash = new_manifest_hash
 
         self.db.commit()
@@ -383,3 +386,189 @@ class BenchmarkService(BaseService):
             category_distribution=dict(category_distribution),
             test_cases=[TestCaseResponse.model_validate(tc, from_attributes=True) for tc in selected],
         )
+
+    def upload_and_ingest_suite(
+        self,
+        tenant_id: Optional[uuid.UUID],
+        name: str,
+        description: Optional[str],
+        file_content: bytes,
+        filename: str,
+        fallback_category: str = "FINANCIAL_FRAUD",
+    ) -> IngestBatchResponse:
+        """Parse and ingest test cases from an uploaded CSV or JSON file into a new custom benchmark suite."""
+        if not file_content:
+            raise ValidationError("Uploaded file is empty.")
+
+        text_content = file_content.decode("utf-8-sig", errors="replace").strip()
+        if not text_content:
+            raise ValidationError("Uploaded file contains no readable text.")
+
+        lower_name = filename.lower()
+        test_case_inputs: List[CreateTestCaseRequest] = []
+
+        if lower_name.endswith(".json"):
+            try:
+                parsed_json = json.loads(text_content)
+            except Exception as e:
+                raise ValidationError(f"Invalid JSON file format: {e}")
+
+            raw_cases = []
+            if isinstance(parsed_json, list):
+                raw_cases = parsed_json
+            elif isinstance(parsed_json, dict):
+                raw_cases = (
+                    parsed_json.get("test_cases")
+                    or parsed_json.get("cases")
+                    or parsed_json.get("prompts")
+                    or [parsed_json]
+                )
+            else:
+                raise ValidationError("JSON root must be an array of test cases or an object with a 'test_cases' list.")
+
+            for idx, item in enumerate(raw_cases):
+                if not isinstance(item, dict):
+                    continue
+                prompt = (
+                    item.get("prompt")
+                    or item.get("prompt_template")
+                    or item.get("attack_prompt")
+                    or item.get("text")
+                    or ""
+                ).strip()
+                if not prompt:
+                    continue
+
+                cat = (item.get("category") or item.get("pillar") or fallback_category).strip().upper()
+                subcat = (item.get("subcategory") or item.get("intent") or f"{cat}_GENERAL").strip().upper()
+
+                raw_sev = str(item.get("severity") or item.get("severity_ceiling") or "HIGH").strip().upper()
+                try:
+                    sev = SeverityLevel(raw_sev)
+                except Exception:
+                    sev = SeverityLevel.HIGH
+
+                raw_mode = str(item.get("mode") or "SINGLE").strip().upper()
+                try:
+                    mode_val = TestCaseMode(raw_mode)
+                except Exception:
+                    mode_val = TestCaseMode.SINGLE
+
+                owasp = item.get("owasp_ids") or []
+                if isinstance(owasp, str):
+                    owasp = [owasp] if owasp else []
+                if not owasp and item.get("owasp_id"):
+                    owasp = [str(item["owasp_id"])]
+
+                session_script = item.get("session_script")
+                if not session_script and "turns" in item:
+                    session_script = {"turns": item["turns"]}
+                    mode_val = TestCaseMode.SESSION
+
+                test_case_inputs.append(
+                    CreateTestCaseRequest(
+                        external_case_ref=str(item.get("external_case_ref") or item.get("id") or f"custom_{idx+1}"),
+                        category=cat,
+                        subcategory=subcat,
+                        prompt_template=prompt,
+                        mode=mode_val,
+                        session_script=session_script,
+                        owasp_ids=owasp,
+                        severity_ceiling=sev,
+                        review_status=ReviewStatus.APPROVED,
+                        language=item.get("language", "en"),
+                        metadata_payload={"source_file": filename, "uploaded_name": name},
+                    )
+                )
+
+        elif lower_name.endswith(".csv") or lower_name.endswith(".txt"):
+            try:
+                reader = csv.DictReader(io.StringIO(text_content))
+            except Exception as e:
+                raise ValidationError(f"Invalid CSV file format: {e}")
+
+            for idx, row in enumerate(reader):
+                if not row:
+                    continue
+                # Find prompt column
+                prompt = ""
+                for key in ["prompt", "prompt_template", "attack_prompt", "text", "test_case"]:
+                    if key in row and row[key]:
+                        prompt = row[key].strip()
+                        break
+                if not prompt:
+                    first_val = list(row.values())[0] if row.values() else ""
+                    if first_val and len(first_val) > 5:
+                        prompt = first_val.strip()
+
+                if not prompt:
+                    continue
+
+                cat = (row.get("category") or row.get("threat_category") or row.get("pillar") or fallback_category).strip().upper()
+                subcat = (row.get("subcategory") or row.get("intent") or row.get("attack_type") or f"{cat}_GENERAL").strip().upper()
+
+                raw_sev = str(row.get("severity") or row.get("severity_ceiling") or "HIGH").strip().upper()
+                try:
+                    sev = SeverityLevel(raw_sev)
+                except Exception:
+                    sev = SeverityLevel.HIGH
+
+                raw_mode = str(row.get("mode") or "SINGLE").strip().upper()
+                try:
+                    mode_val = TestCaseMode(raw_mode)
+                except Exception:
+                    mode_val = TestCaseMode.SINGLE
+
+                owasp_raw = row.get("owasp_id") or row.get("owasp_ids") or ""
+                owasp = [o.strip() for o in owasp_raw.split(";") if o.strip()] if owasp_raw else []
+
+                session_script = None
+                if row.get("session_script"):
+                    try:
+                        session_script = json.loads(row["session_script"])
+                        mode_val = TestCaseMode.SESSION
+                    except Exception:
+                        pass
+
+                test_case_inputs.append(
+                    CreateTestCaseRequest(
+                        external_case_ref=row.get("external_case_ref") or row.get("id") or f"custom_{idx+1}",
+                        category=cat,
+                        subcategory=subcat,
+                        prompt_template=prompt,
+                        mode=mode_val,
+                        session_script=session_script,
+                        owasp_ids=owasp,
+                        severity_ceiling=sev,
+                        review_status=ReviewStatus.APPROVED,
+                        language=row.get("language", "en"),
+                        metadata_payload={"source_file": filename, "uploaded_name": name},
+                    )
+                )
+        else:
+            raise ValidationError("Unsupported file format. Please upload a .csv or .json file.")
+
+        if not test_case_inputs:
+            raise ValidationError("No valid test case prompts could be extracted from the uploaded file.")
+
+        # Create new BenchmarkSource
+        source_id = uuid.uuid4()
+        revision = f"v{int(time.time())}_{source_id.hex[:6]}"
+        initial_manifest = hashlib.sha256(f"{name}:{filename}:{revision}:{source_id}".encode("utf-8")).hexdigest()
+
+        source = BenchmarkSource(
+            id=source_id,
+            tenant_id=tenant_id,
+            name=name.strip(),
+            source_type=BenchmarkSourceType.DOMAIN_CUSTOM,
+            external_ref=filename,
+            revision=revision,
+            license_text=description or "Custom user uploaded test suite",
+            manifest_hash=initial_manifest,
+            status=BenchmarkSourceStatus.APPROVED,
+        )
+        self.db.add(source)
+        self.db.commit()
+        self.db.refresh(source)
+
+        return self.ingest_test_cases(source_id=source.id, cases=test_case_inputs)

@@ -10,6 +10,7 @@ import LiveSimulationPage from '../features/simulation/pages/LiveSimulationPage'
 import TestSuitePage from '../features/testSuites/pages/TestSuitePage';
 import ConnectChatbotPage from '../features/connect/pages/ConnectChatbotPage';
 import SafetyReportPage from '../features/report/pages/SafetyReportPage';
+import LandingPage from '../features/landing/pages/LandingPage';
 import ProtectedRoute from '../shared/components/ProtectedRoute';
 
 function RootRedirect() {
@@ -24,13 +25,13 @@ export default function AppRouter() {
   return (
     <AnimatePresence mode="wait">
       <Routes>
+        {/* Public Landing Page */}
+        <Route path="/" element={<LandingPage />} />
+
         {/* Public authentication routes */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/roles" element={<RoleSelectionPage />} />
-
-        {/* Root redirect */}
-        <Route path="/" element={<RootRedirect />} />
 
         {/* Admin routes (Restricted to role === 'ADMIN') */}
         <Route element={<ProtectedRoute requiredRole="ADMIN" />}>

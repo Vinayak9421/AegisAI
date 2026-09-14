@@ -1,8 +1,8 @@
 import React from 'react';
 
 /**
- * Official AegisAI Institutional Logo
- * Precision-engineered geometric shield with dual-facet depth and cryptographic safety node.
+ * Official AegisAI Brand Logo
+ * Geometric shield with dual-facet depth and cryptographic safety node.
  */
 export default function AegisLogo({
   size = 'md',
@@ -35,7 +35,7 @@ export default function AegisLogo({
       aria-label="AegisAI Shield Emblem"
     >
       <defs>
-        {/* Institutional Blue Gradients */}
+        {/* Navy & Azure Gradients */}
         <linearGradient id="aegisLeftFacet" x1="6" y1="4" x2="22" y2="40" gradientUnits="userSpaceOnUse">
           <stop offset="0%" stopColor="#001c40" />
           <stop offset="60%" stopColor="#0a3d6b" />
@@ -74,7 +74,7 @@ export default function AegisLogo({
         fill="url(#aegisLeftFacet)"
       />
 
-      {/* Right Shield Facet (Reflective Institutional Azure) */}
+      {/* Right Shield Facet (Reflective Azure) */}
       <path
         d="M22 3.6L36.4 9V19.8C36.4 29.3 30.1 37.3 22 39.9V3.6Z"
         fill="url(#aegisRightFacet)"

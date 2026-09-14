@@ -262,7 +262,7 @@ export default function ConnectChatbotPage() {
   return (
     <AppLayout pageTitle="Connect Target Endpoint">
       <div className="max-w-5xl mx-auto w-full py-2 space-y-6">
-        {/* Institutional Section Header */}
+        {/* Section Header */}
         <div className="border-b border-slate-200 pb-5">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div>

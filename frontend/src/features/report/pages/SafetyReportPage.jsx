@@ -292,9 +292,9 @@ export default function SafetyReportPage() {
           </div>
         </div>
 
-        {/* Primary Institutional Certificate Container */}
+        {/* Primary Security Certificate Container */}
         <div className="bg-white border border-slate-200/90 rounded-xl shadow-xs p-6 md:p-9 space-y-8 print:p-0 print:border-none print:shadow-none">
-          {/* Official Letterhead & Authority Header */}
+          {/* Audit & Evaluation Header */}
           <div className="border-b border-slate-200 pb-6 print-avoid-break">
             <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
               <div className="space-y-2.5">
@@ -719,7 +719,7 @@ export default function SafetyReportPage() {
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Evaluating Engine</span>
                 <p className="font-semibold text-slate-800">Aegis Autonomous Defense</p>
-                <p className="text-[10px] text-slate-400 font-mono">v1.0.0-institutional</p>
+                <p className="text-[10px] text-slate-400 font-mono">v1.0.0-release</p>
               </div>
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Independent Judge</span>

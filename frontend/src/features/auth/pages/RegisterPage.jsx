@@ -67,7 +67,7 @@ export default function RegisterPage() {
         transition={{ duration: 0.35, ease: 'easeOut' }}
         className="w-full max-w-md bg-white border border-slate-200/90 rounded-2xl shadow-xs relative z-10 overflow-hidden"
       >
-        {/* Institutional Blue Top Accent Bar */}
+        {/* Accent Bar */}
         <div className="h-1 w-full bg-[#0e61a1]" />
 
         <div className="p-7 sm:p-9">
@@ -106,7 +106,7 @@ export default function RegisterPage() {
 
             <div>
               <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1">
-                Organization / Financial Institution
+                Organization / Company Name
               </label>
               <div className="relative">
                 <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-lg">

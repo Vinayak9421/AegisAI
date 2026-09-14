@@ -179,7 +179,7 @@ export default function LiveSimulationPage() {
   return (
     <AppLayout pageTitle="Live Adversarial Simulation">
       <div className="space-y-5">
-        {/* Institutional Section Header */}
+        {/* Section Header */}
         <div className="border-b border-slate-200 pb-4">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             <div>

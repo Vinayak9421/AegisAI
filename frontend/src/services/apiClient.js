@@ -31,8 +31,10 @@ class ApiClient {
     const token = this.getAuthToken();
     const tenantId = this.getTenantId();
 
+    const isFormData = options.body instanceof FormData;
+
     const headers = {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       Accept: 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(tenantId ? { 'X-Tenant-ID': tenantId } : {}),
@@ -77,25 +79,36 @@ class ApiClient {
   }
 
   post(endpoint, body, headers = {}) {
+    const isFormData = body instanceof FormData;
     return this.request(endpoint, {
       method: 'POST',
-      body: JSON.stringify(body),
+      body: isFormData ? body : JSON.stringify(body),
+      headers,
+    });
+  }
+
+  upload(endpoint, formData, headers = {}) {
+    return this.request(endpoint, {
+      method: 'POST',
+      body: formData,
       headers,
     });
   }
 
   put(endpoint, body, headers = {}) {
+    const isFormData = body instanceof FormData;
     return this.request(endpoint, {
       method: 'PUT',
-      body: JSON.stringify(body),
+      body: isFormData ? body : JSON.stringify(body),
       headers,
     });
   }
 
   patch(endpoint, body, headers = {}) {
+    const isFormData = body instanceof FormData;
     return this.request(endpoint, {
       method: 'PATCH',
-      body: JSON.stringify(body),
+      body: isFormData ? body : JSON.stringify(body),
       headers,
     });
   }

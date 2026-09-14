@@ -70,16 +70,16 @@ export default function LoginPage() {
         <div className="h-1 w-full bg-[#0e61a1]" />
 
         <div className="p-7 sm:p-9">
-          {/* Official Institutional Brand Header */}
+          {/* Brand Header */}
           <div className="text-center mb-7">
             <div className="flex justify-center mb-3">
               <AegisLogo size="xl" showSubtitle={true} subtitleText="FINTECH TRUST & SAFETY GATEWAY" />
             </div>
             <h1 className="text-xl font-serif font-semibold text-slate-900 tracking-tight mt-3">
-              Institutional Security Login
+              Security Platform Sign In
             </h1>
             <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-              Sign in to access adversarial simulation runs, audit registers, and cryptographic attestation certificates.
+              Sign in to access adversarial simulation runs, audit registers, and verification certificates.
             </p>
           </div>
 

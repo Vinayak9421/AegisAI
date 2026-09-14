@@ -39,6 +39,40 @@ export const benchmarkService = {
   async getCategoryStats() {
     return apiClient.get('/benchmarks/stats');
   },
+
+  /**
+   * Upload custom benchmark test suite (CSV or JSON).
+   */
+  async uploadTestSuite(formData) {
+    return apiClient.upload('/benchmarks/upload', formData);
+  },
+
+  /**
+   * Download sample test suite template (CSV or JSON).
+   */
+  async downloadTemplate(format = 'csv') {
+    const token = apiClient.getAuthToken();
+    const tenantId = apiClient.getTenantId();
+    const url = `${apiClient.baseUrl}/benchmarks/templates/${format}`;
+    const res = await fetch(url, {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(tenantId ? { 'X-Tenant-ID': tenantId } : {}),
+      },
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to download template: ${res.statusText}`);
+    }
+    const blob = await res.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.setAttribute('download', `aegis_test_suite_template.${format}`);
+    document.body.appendChild(link);
+    link.click();
+    link.parentNode.removeChild(link);
+    window.URL.revokeObjectURL(downloadUrl);
+  },
 };
 
 export default benchmarkService;

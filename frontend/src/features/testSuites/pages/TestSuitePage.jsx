@@ -1,24 +1,27 @@
 import { useState, useEffect } from 'react';
 import AdminLayout from '../../../shared/components/AdminLayout';
 import PromptExplorer from '../components/PromptExplorer';
+import UploadSuiteModal from '../components/UploadSuiteModal';
 import benchmarkService from '../../../services/benchmarkService';
 
 export default function TestSuitePage() {
   const [sources, setSources] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('prompts'); // 'prompts' | 'pillars'
+  const [activeTab, setActiveTab] = useState('prompts'); // 'prompts' | 'sources' | 'pillars'
+  const [isUploadOpen, setIsUploadOpen] = useState(false);
+
+  const loadSources = async () => {
+    try {
+      const list = await benchmarkService.listSources();
+      setSources(list || []);
+    } catch {
+      setSources([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function loadSources() {
-      try {
-        const list = await benchmarkService.listSources();
-        setSources(list || []);
-      } catch {
-        setSources([]);
-      } finally {
-        setLoading(false);
-      }
-    }
     loadSources();
   }, []);
 
@@ -90,47 +93,126 @@ export default function TestSuitePage() {
                   Adversarial Corpus
                 </span>
                 <span className="text-xs text-slate-500 font-mono">
-                  Seeded in PostgreSQL 18
+                  {totalPromptsCount.toLocaleString()} Total Vectors Loaded
                 </span>
               </div>
               <h1 className="font-serif text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
                 Threat Benchmark Catalog & Vector Explorer
               </h1>
               <p className="text-xs md:text-sm text-slate-600 mt-1">
-                Curated adversarial test cases covering financial fraud, regulatory evasion, prompt injection, and hallucination rubrics.
+                Curated adversarial test cases and custom uploaded suites covering financial fraud, regulatory evasion, prompt injection, and hallucination rubrics.
               </p>
             </div>
 
-            {/* View Mode Switcher */}
-            <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 shadow-2xs shrink-0">
+            {/* Action Buttons & View Switcher */}
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
               <button
-                onClick={() => setActiveTab('prompts')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all ${
-                  activeTab === 'prompts'
-                    ? 'bg-white text-[#0e61a1] shadow-2xs border border-slate-200'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
+                onClick={() => setIsUploadOpen(true)}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-[#0e61a1] hover:bg-[#0b4e82] text-white rounded-lg text-xs font-bold shadow-2xs transition-all"
               >
-                <span className="material-symbols-outlined text-[15px]">database</span>
-                <span>Test Vector Explorer</span>
+                <span className="material-symbols-outlined text-[16px]">upload_file</span>
+                <span>Upload Custom Suite</span>
               </button>
-              <button
-                onClick={() => setActiveTab('pillars')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all ${
-                  activeTab === 'pillars'
-                    ? 'bg-white text-[#0e61a1] shadow-2xs border border-slate-200'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[15px]">security</span>
-                <span>6 Security Pillars</span>
-              </button>
+
+              <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200 shadow-2xs">
+                <button
+                  onClick={() => setActiveTab('prompts')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all ${
+                    activeTab === 'prompts'
+                      ? 'bg-white text-[#0e61a1] shadow-2xs border border-slate-200'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[15px]">database</span>
+                  <span>Test Vectors</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('sources')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all ${
+                    activeTab === 'sources'
+                      ? 'bg-white text-[#0e61a1] shadow-2xs border border-slate-200'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[15px]">folder</span>
+                  <span>Test Suites ({sources.length})</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab('pillars')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-bold transition-all ${
+                    activeTab === 'pillars'
+                      ? 'bg-white text-[#0e61a1] shadow-2xs border border-slate-200'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <span className="material-symbols-outlined text-[15px]">security</span>
+                  <span>6 Security Pillars</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Tab Content */}
-        {activeTab === 'pillars' ? (
+        {activeTab === 'sources' ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {sources.map((item, idx) => {
+                const src = item.source || item;
+                const isCustom = src.source_type === 'DOMAIN_CUSTOM';
+                const totalCases = item.total_test_cases ?? src.total_test_cases ?? src.total_prompts ?? 0;
+                const revision = src.revision || src.version || '1.0';
+
+                return (
+                  <div
+                    key={src.id || idx}
+                    className="bg-white rounded-xl border border-slate-200 p-5 shadow-2xs flex flex-col justify-between hover:border-slate-300 transition-all"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span
+                          className={`px-2 py-0.5 text-[10px] font-mono font-bold uppercase rounded border ${
+                            isCustom
+                              ? 'bg-purple-50 text-purple-700 border-purple-200'
+                              : 'bg-slate-100 text-slate-700 border-slate-200'
+                          }`}
+                        >
+                          {src.source_type || 'STANDARD'}
+                        </span>
+                        <span className="text-xs font-mono font-bold text-[#0e61a1]">
+                          {revision}
+                        </span>
+                      </div>
+                      <h3 className="font-serif text-base font-bold text-slate-900 leading-tight">
+                        {src.name}
+                      </h3>
+                      <p className="text-xs text-slate-600 mt-1.5 leading-relaxed">
+                        {src.license_text || src.description || 'Curated benchmark test suite.'}
+                      </p>
+                    </div>
+
+                    <div className="pt-4 mt-4 border-t border-slate-100 space-y-1.5 text-[11px] font-mono">
+                      <div className="flex justify-between text-slate-500">
+                        <span>Total Test Cases:</span>
+                        <span className="text-slate-900 font-bold">
+                          {totalCases.toLocaleString()}
+                        </span>
+                      </div>
+                      {src.manifest_hash && (
+                        <div className="flex justify-between text-slate-500 pt-0.5">
+                          <span>Manifest Hash:</span>
+                          <span className="text-slate-700 font-bold truncate max-w-[140px]">
+                            {src.manifest_hash.slice(0, 12)}...
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : activeTab === 'pillars' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {pillars.map((p) => (
               <div
@@ -173,6 +255,16 @@ export default function TestSuitePage() {
           <PromptExplorer />
         )}
       </div>
+
+      {/* Upload Suite Modal */}
+      <UploadSuiteModal
+        isOpen={isUploadOpen}
+        onClose={() => setIsUploadOpen(false)}
+        onUploadSuccess={() => {
+          loadSources();
+          setActiveTab('sources');
+        }}
+      />
     </AdminLayout>
   );
 }
