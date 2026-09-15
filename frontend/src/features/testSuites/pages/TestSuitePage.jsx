@@ -9,6 +9,9 @@ export default function TestSuitePage() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('prompts'); // 'prompts' | 'sources' | 'pillars'
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [suiteToDelete, setSuiteToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
 
   const loadSources = async () => {
     try {
@@ -18,6 +21,21 @@ export default function TestSuitePage() {
       setSources([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteSuite = async () => {
+    if (!suiteToDelete) return;
+    setIsDeleting(true);
+    setDeleteError(null);
+    try {
+      await benchmarkService.deleteSource(suiteToDelete.id);
+      setSuiteToDelete(null);
+      await loadSources();
+    } catch (err) {
+      setDeleteError(err.message || 'Failed to delete benchmark suite');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -191,21 +209,37 @@ export default function TestSuitePage() {
                       </p>
                     </div>
 
-                    <div className="pt-4 mt-4 border-t border-slate-100 space-y-1.5 text-[11px] font-mono">
-                      <div className="flex justify-between text-slate-500">
-                        <span>Total Test Cases:</span>
-                        <span className="text-slate-900 font-bold">
-                          {totalCases.toLocaleString()}
-                        </span>
-                      </div>
-                      {src.manifest_hash && (
-                        <div className="flex justify-between text-slate-500 pt-0.5">
-                          <span>Manifest Hash:</span>
-                          <span className="text-slate-700 font-bold truncate max-w-[140px]">
-                            {src.manifest_hash.slice(0, 12)}...
+                    <div className="pt-4 mt-4 border-t border-slate-100 flex items-end justify-between gap-3">
+                      <div className="space-y-1.5 text-[11px] font-mono flex-1">
+                        <div className="flex justify-between text-slate-500">
+                          <span>Total Test Cases:</span>
+                          <span className="text-slate-900 font-bold">
+                            {totalCases.toLocaleString()}
                           </span>
                         </div>
-                      )}
+                        {src.manifest_hash && (
+                          <div className="flex justify-between text-slate-500 pt-0.5">
+                            <span>Manifest Hash:</span>
+                            <span className="text-slate-700 font-bold truncate max-w-[120px]">
+                              {src.manifest_hash.slice(0, 12)}...
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSuiteToDelete({ id: src.id, name: src.name, count: totalCases });
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg border border-transparent hover:border-rose-200 transition-colors cursor-pointer shrink-0"
+                        title="Delete benchmark suite"
+                      >
+                        <span className="material-symbols-outlined text-lg leading-none">
+                          delete
+                        </span>
+                      </button>
                     </div>
                   </div>
                 );
@@ -265,6 +299,66 @@ export default function TestSuitePage() {
           setActiveTab('sources');
         }}
       />
+
+      {/* Delete Confirmation Modal */}
+      {suiteToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
+          <div className="bg-white rounded-xl max-w-md w-full border border-slate-200 shadow-xl p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 shrink-0">
+                <span className="material-symbols-outlined text-xl">delete_forever</span>
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-serif font-bold text-slate-900">
+                  Delete Benchmark Suite?
+                </h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Are you sure you want to delete <span className="font-semibold text-slate-900">"{suiteToDelete.name}"</span>? 
+                  This will permanently remove the suite and its <span className="font-mono font-bold text-rose-600">{suiteToDelete.count}</span> test cases from the database.
+                </p>
+              </div>
+            </div>
+
+            {deleteError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700">
+                {deleteError}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSuiteToDelete(null);
+                  setDeleteError(null);
+                }}
+                disabled={isDeleting}
+                className="px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteSuite}
+                disabled={isDeleting}
+                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 disabled:opacity-50 rounded-lg shadow-2xs flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                {isDeleting ? (
+                  <>
+                    <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-sm">delete</span>
+                    <span>Delete Suite</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }

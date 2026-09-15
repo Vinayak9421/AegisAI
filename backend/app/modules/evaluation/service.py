@@ -132,6 +132,7 @@ class JobService(BaseService):
         sampled = self.benchmark_service.select_test_cases(
             mode=request.mode,
             categories=request.category_filters if request.category_filters else None,
+            source_ids=request.source_ids if request.source_ids else None,
             seed=seed,
         )
 

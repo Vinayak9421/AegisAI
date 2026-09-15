@@ -11,7 +11,7 @@ import uuid
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.errors import ConflictError, NotFoundError, ValidationError
+from app.core.errors import ConflictError, ForbiddenError, NotFoundError, ValidationError
 from app.core.logging import logger
 from app.domain.enums import (
     BenchmarkSourceStatus,
@@ -95,6 +95,22 @@ class BenchmarkService(BaseService):
         if not source:
             raise NotFoundError(f"Benchmark source '{source_id}' not found")
         return source
+
+    def delete_source(self, source_id: uuid.UUID, tenant_id: Optional[uuid.UUID] = None) -> bool:
+        """Delete a benchmark source and its associated test cases."""
+        source = self.get_source(source_id)
+        if tenant_id and source.tenant_id and source.tenant_id != tenant_id:
+            raise ForbiddenError("Not authorized to delete this benchmark source")
+
+        stmt_del_cases = select(TestCase.id).where(TestCase.source_id == source_id)
+        case_ids = list(self.db.scalars(stmt_del_cases).all())
+        if case_ids:
+            self.db.query(TestCase).filter(TestCase.source_id == source_id).delete(synchronize_session=False)
+
+        self.db.delete(source)
+        self.db.commit()
+        logger.info(f"Deleted benchmark source '{source.name}' ({source_id}) with {len(case_ids)} test cases")
+        return True
 
     def get_source_summary(self, source_id: uuid.UUID) -> BenchmarkSourceSummaryResponse:
         """Retrieve source details with aggregated test case statistics and category breakdown."""
@@ -292,6 +308,7 @@ class BenchmarkService(BaseService):
         self,
         mode: JobMode = JobMode.QUICK,
         categories: Optional[List[str]] = None,
+        source_ids: Optional[List[uuid.UUID]] = None,
         seed: int = 42,
         sample_size: Optional[int] = None,
     ) -> SampledTestCasesResponse:
@@ -303,6 +320,8 @@ class BenchmarkService(BaseService):
         """
         # 1. Fetch eligible approved test cases
         stmt = select(TestCase).where(TestCase.review_status == ReviewStatus.APPROVED)
+        if source_ids:
+            stmt = stmt.where(TestCase.source_id.in_(source_ids))
         if categories:
             normalized_cats = [c.upper() for c in categories]
             stmt = stmt.where(TestCase.category.in_(normalized_cats))

@@ -69,14 +69,45 @@ class EvaluationRunner:
             item.last_error = {"reason": "Job cancelled by user"}
             job.state = JobState.CANCELLED
             self.db.commit()
-        # Check if test case is a multi-turn conversational session
-        is_multi_turn = (
-            test_case.mode == TestCaseMode.SESSION
-            or (test_case.session_script and isinstance(test_case.session_script, dict) and "turns" in test_case.session_script)
-        )
-        if is_multi_turn:
-            return await self._execute_session_turns(item, test_case, job, target)
+            return None
 
+        try:
+            # Check if test case is a multi-turn conversational session
+            is_multi_turn = (
+                test_case.mode == TestCaseMode.SESSION
+                or (test_case.session_script and isinstance(test_case.session_script, dict) and "turns" in test_case.session_script)
+            )
+            if is_multi_turn:
+                return await self._execute_session_turns(item, test_case, job, target)
+
+            return await self._execute_single_turn_item(item, test_case, job, target)
+
+        except Exception as e:
+            logger.error(f"Fatal error executing item {item_id}: {e}", exc_info=True)
+            self.db.rollback()
+            try:
+                item = self.db.get(JobItem, item_id)
+                if item and item.state != JobItemState.COMPLETE:
+                    item.state = JobItemState.FAILED
+                    item.last_error = {"error": str(e), "type": type(e).__name__}
+                    job = self.db.get(Job, item.job_id)
+                    if job:
+                        job.failed_items += 1
+                        if (job.completed_items + job.failed_items) >= job.total_items:
+                            job.state = JobState.COMPLETED
+                            job.finished_at = datetime.datetime.now(datetime.timezone.utc)
+                    self.db.commit()
+            except Exception as db_err:
+                logger.error(f"Failed to record failure state for item {item_id}: {db_err}")
+            return None
+
+    async def _execute_single_turn_item(
+        self,
+        item: JobItem,
+        test_case: Any,
+        job: Job,
+        target: Target,
+    ) -> Optional[TestResult]:
         # 2. Update item state to TARGET_RUNNING
         item.state = JobItemState.TARGET_RUNNING
         item.attempt_count += 1
@@ -446,7 +477,7 @@ class EvaluationRunner:
                     if turn_to_harm is None:
                         turn_to_harm = turn_no
                         session.state = SessionState.HARM_DETECTED
-                        session.termination_reason = f"Harm detected at turn {turn_no}: {judge_out.rationale[:60]}"
+                        session.termination_reason = f"Harm detected at turn {turn_no}: {judge_out.rationale}"[:500]
                 elif worst_verdict != Verdict.UNSAFE and v_val == Verdict.AMBIGUOUS:
                     worst_verdict = Verdict.AMBIGUOUS
                     worst_rationale = f"[Turn {turn_no} Ambiguity] {judge_out.rationale}"
@@ -549,7 +580,13 @@ class EvaluationRunner:
             select(JobItem.id)
             .where(
                 JobItem.job_id == job_id,
-                JobItem.state.in_([JobItemState.PENDING, JobItemState.LEASED]),
+                JobItem.state.in_([
+                    JobItemState.PENDING,
+                    JobItemState.LEASED,
+                    JobItemState.TARGET_RUNNING,
+                    JobItemState.TARGET_COMPLETE,
+                    JobItemState.JUDGING,
+                ]),
             )
             .order_by(JobItem.created_at.asc())
         )
@@ -577,7 +614,15 @@ class EvaluationRunner:
             if idx > 0 and pacing_delay > 0:
                 await asyncio.sleep(pacing_delay)
 
-            await self.execute_item(i_id)
+            try:
+                await self.execute_item(i_id)
+            except Exception as err:
+                logger.error(f"Unhandled error in item loop for {i_id}: {err}")
 
         self.db.refresh(job)
+        if (job.completed_items + job.failed_items) >= job.total_items and job.state != JobState.CANCELLED:
+            job.state = JobState.COMPLETED
+            job.finished_at = datetime.datetime.now(datetime.timezone.utc)
+            self.db.commit()
+
         return job

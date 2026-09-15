@@ -62,6 +62,26 @@ def get_source_summary(
     )
 
 
+@router.delete(
+    "/sources/{source_id}",
+    response_model=ApiResponse[dict],
+    summary="Delete Benchmark Source",
+)
+def delete_source(
+    source_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    tenant_id: Optional[uuid.UUID] = Depends(get_current_tenant_id),
+    request_id: str = Depends(get_request_id),
+) -> ApiResponse[dict]:
+    """Delete a benchmark source and its associated test cases."""
+    service = BenchmarkService(db)
+    service.delete_source(source_id=source_id, tenant_id=tenant_id)
+    return ApiResponse(
+        data={"deleted": True},
+        meta=ResponseMeta(request_id=request_id),
+    )
+
+
 @router.post(
     "/sources",
     response_model=ApiResponse[BenchmarkSourceResponse],

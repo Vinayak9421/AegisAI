@@ -93,12 +93,26 @@ class HostedConnector(TargetConnectorPort):
 
                 parsed_json = None
                 schema_valid = False
+                provider_error = None
                 try:
                     parsed_json = resp.json()
+                    if isinstance(parsed_json, dict):
+                        if "error" in parsed_json:
+                            err_val = parsed_json["error"]
+                            if isinstance(err_val, dict):
+                                provider_error = err_val.get("message") or err_val.get("code")
+                            else:
+                                provider_error = str(err_val)
+                        elif "message" in parsed_json:
+                            provider_error = str(parsed_json["message"])
                     parsed = self.profile.parse_response(parsed_json, resp.text)
                     schema_valid = bool(parsed.text)
                 except Exception:
                     schema_valid = False
+
+                error_class = None
+                if not status_ok:
+                    error_class = f"http_{resp.status_code}: {provider_error}" if provider_error else f"http_{resp.status_code}"
 
                 return ConnectorValidationReport(
                     is_valid=status_ok,
@@ -111,8 +125,9 @@ class HostedConnector(TargetConnectorPort):
                         "response_size_bytes": len(resp.content),
                         "schema_valid": schema_valid,
                         "connector_profile": self.profile.profile_name,
+                        "provider_error": provider_error,
                     },
-                    safe_error_class=None if status_ok else f"http_{resp.status_code}",
+                    safe_error_class=error_class,
                 )
         except httpx.ConnectTimeout:
             return ConnectorValidationReport(

@@ -373,7 +373,7 @@ class Session(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     current_turn: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     max_turns: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     history_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
-    termination_reason: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    termination_reason: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
 
     # Relationships
     job: Mapped["Job"] = relationship("Job", back_populates="sessions")

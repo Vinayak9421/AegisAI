@@ -48,6 +48,13 @@ export const benchmarkService = {
   },
 
   /**
+   * Delete a benchmark test suite source and its test cases.
+   */
+  async deleteSource(sourceId) {
+    return apiClient.delete(`/benchmarks/sources/${sourceId}`);
+  },
+
+  /**
    * Download sample test suite template (CSV or JSON).
    */
   async downloadTemplate(format = 'csv') {
