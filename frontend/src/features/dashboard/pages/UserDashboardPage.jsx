@@ -106,7 +106,7 @@ export default function UserDashboardPage() {
                 Audit Dashboard
               </span>
               <span className="text-xs text-slate-500 font-mono">
-                Active Targets: {targets.length} • Evaluated Jobs: {jobs.length}
+                Active Targets: {targets.length} | Evaluated Jobs: {jobs.length}
               </span>
             </div>
             <h1 className="font-serif text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">

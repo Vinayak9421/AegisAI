@@ -82,7 +82,7 @@ export default function MessageBubble({ message, index }) {
             <span className="material-symbols-outlined text-xs text-[#0e61a1]">terminal</span>
             Dispatched Attack Payload
           </span>
-          <span className="font-mono text-[10px] text-slate-400 font-normal">Phase A • Sentinel</span>
+          <span className="font-mono text-[10px] text-slate-400 font-normal">Phase A | Sentinel</span>
         </div>
         <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-mono text-slate-800 whitespace-pre-wrap break-words leading-relaxed select-text">
           {text}
@@ -97,7 +97,7 @@ export default function MessageBubble({ message, index }) {
               <span className="material-symbols-outlined text-xs text-slate-600">smart_toy</span>
               Target Model Output
             </span>
-            <span className="font-mono text-[10px] text-slate-400 font-normal">Phase B • Model Execution</span>
+            <span className="font-mono text-[10px] text-slate-400 font-normal">Phase B | Model Execution</span>
           </div>
           <div
             className={clsx(

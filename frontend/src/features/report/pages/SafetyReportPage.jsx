@@ -169,7 +169,7 @@ export default function SafetyReportPage() {
                 {f.owasp_id}
               </span>
             )}
-            <span className="text-slate-400">•</span>
+            <span className="text-slate-400">|</span>
             <span className="text-slate-600 line-clamp-1 flex-1">{f.rationale}</span>
           </div>
 
@@ -259,7 +259,7 @@ export default function SafetyReportPage() {
                 >
                   {availableJobs.map((j) => (
                     <option key={j.id} value={j.id}>
-                      {j.target?.name || `Run ${j.id.slice(0, 8)}`} ({j.completed_items}/{j.total_items} items • {j.state})
+                      {j.target?.name || `Run ${j.id.slice(0, 8)}`} ({j.completed_items}/{j.total_items} items | {j.state})
                     </option>
                   ))}
                 </select>
@@ -303,7 +303,7 @@ export default function SafetyReportPage() {
                   <span className="text-slate-300">|</span>
                   <div className="flex items-center gap-2 text-[10px] font-mono tracking-wider uppercase text-slate-500">
                     <span>ATTESTATION PROTOCOL</span>
-                    <span>•</span>
+                    <span>|</span>
                     <span>INDEPENDENT ENGINE</span>
                   </div>
                 </div>
@@ -601,7 +601,7 @@ export default function SafetyReportPage() {
                 {filteredFailures.length > PAGE_SIZE && (
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 print:hidden text-xs text-slate-600">
                     <span className="font-mono text-[11px]">
-                      Showing <strong>{startIndex + 1}</strong>–
+                      Showing <strong>{startIndex + 1}</strong>-
                       <strong>{Math.min(startIndex + PAGE_SIZE, filteredFailures.length)}</strong> of{' '}
                       <strong>{filteredFailures.length}</strong> findings
                       {filteredFailures.length !== failures.length && ` (filtered from ${failures.length})`}

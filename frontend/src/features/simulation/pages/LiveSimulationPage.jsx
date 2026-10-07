@@ -243,7 +243,7 @@ export default function LiveSimulationPage() {
                   Active Execution Log
                 </h2>
                 <p className="text-[11px] text-slate-500 font-mono mt-0.5">
-                  Target: {job?.target?.name || 'Financial Model Endpoint'} • Mode: {job?.mode || 'QUICK'}
+                  Target: {job?.target?.name || 'Financial Model Endpoint'} | Mode: {job?.mode || 'QUICK'}
                 </p>
               </div>
 

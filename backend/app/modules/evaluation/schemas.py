@@ -1,4 +1,4 @@
-"""Job, evaluation, and test result schemas."""
+﻿"""Job, evaluation, and test result schemas."""
 
 import datetime
 import uuid
@@ -26,6 +26,7 @@ class CreateJobRequest(BaseModel):
     source_ids: List[uuid.UUID] = Field(default_factory=list)
     sampling_seed: Optional[int] = None
     category_filters: List[str] = Field(default_factory=list)
+    sample_size: Optional[int] = None
     include_sessions: bool = False
     include_traces: bool = False
     judge_profile: Dict[str, Any] = Field(default_factory=dict)
@@ -122,3 +123,4 @@ class SessionTurnResponse(BaseModel):
     prompt_text: str
     state: TurnState
     created_at: datetime.datetime
+

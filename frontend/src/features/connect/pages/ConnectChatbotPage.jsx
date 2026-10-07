@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import benchmarkService from '../../../services/benchmarkService';
+import SuiteSelectionModal from '../components/SuiteSelectionModal';
 import AppLayout from '../../../shared/components/AppLayout';
 import toast from 'react-hot-toast';
 import targetService from '../../../services/targetService';
@@ -8,6 +10,31 @@ import jobService from '../../../services/jobService';
 
 export default function ConnectChatbotPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const preselectedSuiteId = searchParams.get('suiteId');
+
+  // Benchmark suite selection states
+  const [availableSources, setAvailableSources] = useState([]);
+  const [suiteScope, setSuiteScope] = useState(preselectedSuiteId ? 'CUSTOM_MIX' : 'STANDARD');
+  const [customMixIds, setCustomMixIds] = useState(preselectedSuiteId ? [preselectedSuiteId] : []);
+  const [isCustomMixOpen, setIsCustomMixOpen] = useState(false);
+
+  const STANDARD_NAMES = [
+    'Finred Financial Red-Teaming Benchmark',
+    'AdvBench Harmful Behaviors',
+    'HarmBench Standard Behaviors',
+    'Benign Financial & General Baseline',
+  ];
+
+  const standardSources = availableSources.filter((s) => {
+    const src = s.source || s;
+    return STANDARD_NAMES.includes(src.name);
+  });
+
+  const customSources = availableSources.filter((s) => {
+    const src = s.source || s;
+    return !STANDARD_NAMES.includes(src.name);
+  });
 
   // Form states
   const [targetName, setTargetName] = useState('Google Gemini Flash');
@@ -25,6 +52,25 @@ export default function ConnectChatbotPage() {
   const [createdTarget, setCreatedTarget] = useState(null);
   const [probeData, setProbeData] = useState(null);
   const [startingScan, setStartingScan] = useState(false);
+
+  // Load benchmark sources on component mount
+  useEffect(() => {
+    async function loadBenchmarkSources() {
+      try {
+        const list = await benchmarkService.listSources();
+        if (list && list.length > 0) {
+          setAvailableSources(list);
+          if (preselectedSuiteId) {
+            setSuiteScope('CUSTOM_MIX');
+            setCustomMixIds([preselectedSuiteId]);
+          }
+        }
+      } catch (e) {
+        console.warn('Could not load benchmark sources:', e);
+      }
+    }
+    loadBenchmarkSources();
+  }, [preselectedSuiteId]);
 
   // Auto-load latest target on component mount
   useEffect(() => {
@@ -241,10 +287,29 @@ export default function ConnectChatbotPage() {
         return;
       }
 
+
+
+      let sourceIdsPayload = [];
+      if (suiteScope === 'STANDARD') {
+        sourceIdsPayload = standardSources.map((s) => (s.source?.id || s.id));
+      } else if (suiteScope === 'CUSTOM_MIX') {
+        if (!customMixIds || customMixIds.length === 0) {
+          toast.error('Please configure your custom mix and select at least one benchmark suite.');
+          setIsCustomMixOpen(true);
+          setStartingScan(false);
+          return;
+        }
+        sourceIdsPayload = customMixIds;
+      } else {
+        // 'ALL' - include both standard and custom uploaded suites
+        sourceIdsPayload = [];
+      }
+
       const job = await jobService.createJob({
         target_id: target.id,
         mode: evaluationMode,
-        sample_size: evaluationMode === 'QUICK' ? 25 : 100,
+        sample_size: evaluationMode === 'QUICK' ? 25 : 150,
+        source_ids: sourceIdsPayload,
         seed: 42,
       });
 
@@ -423,7 +488,7 @@ export default function ConnectChatbotPage() {
                     value={apiKey}
                     onChange={(e) => setApiKey(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-900 font-mono placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0e61a1] transition-colors pr-10"
-                    placeholder="sk-proj-••••••••••••••••••••••••"
+                    placeholder="sk-proj-********************************"
                     type={showKey ? 'text' : 'password'}
                   />
                   <button
@@ -501,7 +566,7 @@ export default function ConnectChatbotPage() {
                       const lat = probeData?.latency_ms ?? probeData?.capability_report?.latency_ms ?? createdTarget?.validation_report?.latency_ms;
                       if (testing) return <span className="text-blue-600">Measuring...</span>;
                       if (lat != null) return `${Math.round(lat)}ms`;
-                      return '—';
+                      return '-';
                     })()}
                   </span>
                 </div>
@@ -546,48 +611,127 @@ export default function ConnectChatbotPage() {
 
             {/* Audit Scope Selector */}
             <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-2xs space-y-4">
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
-                Evaluation Benchmark Suite
-              </h3>
+              <div>
+                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">
+                  Test Suite Scope
+                </h3>
+                <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded-lg text-xs font-medium border border-slate-200 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setSuiteScope('STANDARD')}
+                    className={`py-1.5 px-1.5 rounded font-bold transition-all text-center ${
+                      suiteScope === 'STANDARD'
+                        ? 'bg-white text-[#0e61a1] shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Standard Only
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSuiteScope('ALL')}
+                    className={`py-1.5 px-1.5 rounded font-bold transition-all text-center ${
+                      suiteScope === 'ALL'
+                        ? 'bg-white text-[#0e61a1] shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Standard + Custom
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSuiteScope('CUSTOM_MIX');
+                      if (customMixIds.length === 0) {
+                        setIsCustomMixOpen(true);
+                      }
+                    }}
+                    className={`py-1.5 px-1.5 rounded font-bold transition-all text-center flex items-center justify-center gap-1 ${
+                      suiteScope === 'CUSTOM_MIX'
+                        ? 'bg-white text-[#0e61a1] shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <span>Mix & Match</span>
+                    {customMixIds.length > 0 && (
+                      <span className="px-1.5 py-0.2 bg-purple-100 text-purple-700 font-mono text-[9px] rounded-full font-bold">
+                        {customMixIds.length}
+                      </span>
+                    )}
+                  </button>
+                </div>
 
-              <div className="space-y-2">
-                <label
-                  onClick={() => setEvaluationMode('QUICK')}
-                  className={`p-3 rounded-lg border block cursor-pointer transition-all ${
-                    evaluationMode === 'QUICK'
-                      ? 'bg-sky-50/70 border-[#0e61a1] shadow-2xs'
-                      : 'border-slate-200 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold text-slate-900">Quick Calibration Run</span>
-                    <span className="px-1.5 py-0.2 bg-slate-200 text-slate-700 text-[10px] font-mono rounded">
-                      25 Vectors
-                    </span>
+                {suiteScope === 'CUSTOM_MIX' && (
+                  <div className="mb-3 p-3 bg-purple-50/70 border border-purple-200 rounded-lg flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-xs font-bold text-purple-900 flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-sm text-purple-600">checklist</span>
+                        <span>Custom Suite Mix Active</span>
+                      </div>
+                      <p className="text-[11px] text-purple-700 font-mono mt-0.5">
+                        {customMixIds.length} {customMixIds.length === 1 ? 'suite' : 'suites'} selected ({(() => {
+                          const cnt = availableSources
+                            .filter((s) => customMixIds.includes(s.source?.id || s.id))
+                            .reduce((acc, s) => acc + (s.total_test_cases ?? s.source?.total_test_cases ?? s.total_prompts ?? 0), 0);
+                          return cnt.toLocaleString();
+                        })()} vectors)
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomMixOpen(true)}
+                      className="px-2.5 py-1.5 bg-white hover:bg-purple-50 border border-purple-300 text-purple-700 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1"
+                    >
+                      <span className="material-symbols-outlined text-xs">tune</span>
+                      <span>Edit Mix</span>
+                    </button>
                   </div>
-                  <p className="text-[11px] text-slate-500">
-                    Stratified sample across all 6 financial pillars. Estimated execution: ~90 seconds.
-                  </p>
-                </label>
+                )}
+              </div>
 
-                <label
-                  onClick={() => setEvaluationMode('FULL')}
-                  className={`p-3 rounded-lg border block cursor-pointer transition-all ${
-                    evaluationMode === 'FULL'
-                      ? 'bg-sky-50/70 border-[#0e61a1] shadow-2xs'
-                      : 'border-slate-200 hover:bg-slate-50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs font-bold text-slate-900">Comprehensive Threat Audit</span>
-                    <span className="px-1.5 py-0.2 bg-slate-200 text-slate-700 text-[10px] font-mono rounded">
-                      Full Catalog
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-500">
-                    Exhaustive red-team execution including multi-turn Turn-to-Harm escalation vectors.
-                  </p>
-                </label>
+              <div>
+                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">
+                  Evaluation Audit Intensity
+                </h3>
+                <div className="space-y-2">
+                  <label
+                    onClick={() => setEvaluationMode('QUICK')}
+                    className={`p-3 rounded-lg border block cursor-pointer transition-all ${
+                      evaluationMode === 'QUICK'
+                        ? 'bg-sky-50/70 border-[#0e61a1] shadow-2xs'
+                        : 'border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-bold text-slate-900">Quick Calibration Run</span>
+                      <span className="px-1.5 py-0.2 bg-slate-200 text-slate-700 text-[10px] font-mono rounded font-bold">
+                        25 Vectors
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Balanced stratified sample across active categories. Estimated execution: ~90 seconds.
+                    </p>
+                  </label>
+
+                  <label
+                    onClick={() => setEvaluationMode('FULL')}
+                    className={`p-3 rounded-lg border block cursor-pointer transition-all ${
+                      evaluationMode === 'FULL'
+                        ? 'bg-sky-50/70 border-[#0e61a1] shadow-2xs'
+                        : 'border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-bold text-slate-900">Comprehensive Threat Audit</span>
+                      <span className="px-1.5 py-0.2 bg-slate-200 text-slate-700 text-[10px] font-mono rounded font-bold">
+                        150 Vectors
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Exhaustive red-team execution across entire taxonomy with non-blocking background telemetry.
+                    </p>
+                  </label>
+                </div>
               </div>
 
               {/* Legal confirmation */}
@@ -615,7 +759,7 @@ export default function ConnectChatbotPage() {
               Target Execution Profile Ready
             </p>
             <p className="text-[11px] text-slate-500">
-              Seed: 42 (Deterministic) • Independent Judge: Groq Llama-3.3-70B • Anti-Injection Fenced
+              Seed: 42 (Deterministic) | Independent Judge: Groq Llama-3.3-70B | Anti-Injection Fenced
             </p>
           </div>
           <button
@@ -641,6 +785,17 @@ export default function ConnectChatbotPage() {
           </button>
         </div>
       </div>
+      {/* Custom Suite Selection Modal */}
+      <SuiteSelectionModal
+        isOpen={isCustomMixOpen}
+        onClose={() => setIsCustomMixOpen(false)}
+        sources={availableSources}
+        selectedSuiteIds={customMixIds.length > 0 ? customMixIds : standardSources.map((s) => (s.source?.id || s.id))}
+        onApply={(ids) => {
+          setCustomMixIds(ids);
+          setSuiteScope('CUSTOM_MIX');
+        }}
+      />
     </AppLayout>
   );
 }

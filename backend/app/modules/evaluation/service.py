@@ -1,4 +1,4 @@
-"""Job service implementing evaluation run creation, state transitions, and results retrieval."""
+﻿"""Job service implementing evaluation run creation, state transitions, and results retrieval."""
 
 import datetime
 import hashlib
@@ -376,3 +376,4 @@ class JobService(BaseService):
         )
 
     list_job_results = get_job_results
+

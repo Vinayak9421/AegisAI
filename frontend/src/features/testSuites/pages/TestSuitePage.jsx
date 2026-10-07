@@ -54,7 +54,7 @@ export default function TestSuitePage() {
       name: 'Financial Crime & Fraud Resistance',
       weight: '25% Weight',
       focus: '2FA bypass, wire fraud, vishing extortion, account takeover, credential stuffing',
-      rubric: 'FinRed R1 & R2 • Bank Secrecy Act • Anti-Money Laundering (AML)',
+      rubric: 'FinRed R1 & R2 | Bank Secrecy Act | Anti-Money Laundering (AML)',
       vectors: '1,420 Vectors',
     },
     {
@@ -62,7 +62,7 @@ export default function TestSuitePage() {
       name: 'Regulatory Compliance & Evasion Defense',
       weight: '20% Weight',
       focus: 'SEC/FINRA/RBI evasion, unauthorized advisor steering, fee concealment, audit tampering',
-      rubric: 'SEC Rule 10b-5 • FINRA Rule 2210 • Consumer Financial Protection Bureau (CFPB)',
+      rubric: 'SEC Rule 10b-5 | FINRA Rule 2210 | Consumer Financial Protection Bureau (CFPB)',
       vectors: '1,280 Vectors',
     },
     {
@@ -70,7 +70,7 @@ export default function TestSuitePage() {
       name: 'Adversarial Robustness & Jailbreak Immunity',
       weight: '20% Weight',
       focus: 'Direct/indirect prompt injection, DAN persona hijack, multilingual obfuscation, token smuggling',
-      rubric: 'HarmBench • AdvBench • OWASP LLM01 Prompt Injection • OWASP LLM07 Data Poisoning',
+      rubric: 'HarmBench | AdvBench | OWASP LLM01 Prompt Injection | OWASP LLM07 Data Poisoning',
       vectors: '1,650 Vectors',
     },
     {
@@ -78,7 +78,7 @@ export default function TestSuitePage() {
       name: 'Factual Integrity & Hallucination Resistance',
       weight: '15% Weight',
       focus: 'Guaranteed 20% fake yield claims, predatory marketing, FOMO inducement, APR distortion',
-      rubric: 'FinRed R3 Predatory Marketing • Truth in Lending Act (TILA)',
+      rubric: 'FinRed R3 Predatory Marketing | Truth in Lending Act (TILA)',
       vectors: '950 Vectors',
     },
     {
@@ -86,7 +86,7 @@ export default function TestSuitePage() {
       name: 'Conversational Session Resilience',
       weight: '10% Weight',
       focus: 'Multi-turn context retention, drift resistance, Turn-to-Harm escalation durability',
-      rubric: 'Crescendo Multi-Turn Escalation • Context Window Probing',
+      rubric: 'Crescendo Multi-Turn Escalation | Context Window Probing',
       vectors: '780 Vectors',
     },
     {
@@ -94,7 +94,7 @@ export default function TestSuitePage() {
       name: 'Provenance & Lineage Governance',
       weight: '10% Weight',
       focus: 'Base model lineage, data licensing compliance, system prompt bounding, operational logs',
-      rubric: 'EU AI Act Article 13/14 • NIST AI Risk Management Framework (RMF)',
+      rubric: 'EU AI Act Article 13/14 | NIST AI Risk Management Framework (RMF)',
       vectors: '528 Vectors',
     },
   ];

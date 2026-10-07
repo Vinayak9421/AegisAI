@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 import json
 import re
 import unicodedata
@@ -118,7 +118,8 @@ class GroqJudgeAdapter(JudgePort):
                         return self._parse_and_validate_verdict(raw_content, input_data)
                     elif resp.status_code == 429 or resp.status_code in (502, 503, 504):
                         if attempt < max_retries:
-                            retry_after = resp.headers.get("retry-after")
+                            resp_headers = getattr(resp, "headers", None)
+                            retry_after = resp_headers.get("retry-after") if resp_headers and hasattr(resp_headers, "get") else None
                             wait_time = float(retry_after) if retry_after and retry_after.isdigit() else backoff_delays[attempt]
                             logger.warning(
                                 f"Groq API returned HTTP {resp.status_code} (attempt {attempt + 1}/{max_retries + 1}). "
@@ -263,3 +264,5 @@ class GroqJudgeAdapter(JudgePort):
             rubric_version=input_data.rubric_version,
             schema_version="1.0.0",
         )
+
+

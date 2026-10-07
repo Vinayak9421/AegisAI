@@ -135,7 +135,7 @@ export default function RegisterPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••••••"
+                  placeholder="************"
                   className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-10 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0e61a1] focus:ring-1 focus:ring-[#0e61a1] transition-all font-mono"
                 />
                 <button
@@ -163,7 +163,7 @@ export default function RegisterPage() {
                   required
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="••••••••••••"
+                  placeholder="************"
                   className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-10 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-[#0e61a1] focus:ring-1 focus:ring-[#0e61a1] transition-all font-mono"
                 />
                 <button

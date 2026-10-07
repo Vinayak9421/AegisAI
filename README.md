@@ -1,4 +1,4 @@
-# Aegis AI — Trust & Safety Red-Teaming & Dynamic Scoring Engine Platform
+﻿# Aegis AI â€” Trust & Safety Red-Teaming & Dynamic Scoring Engine Platform
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python: 3.11+](https://img.shields.io/badge/Python-3.11%2B-blue.svg)](https://www.python.org/)
@@ -11,21 +11,21 @@
 
 ---
 
-## 🚀 Key Features
+## ðŸš€ Key Features
 
-### 1. 🌐 Flexible Hosted Chatbot Integration
+### 1. ðŸŒ Flexible Hosted Chatbot Integration
 - **Universal REST / OpenAI / Custom Chatbot Connector**: Seamlessly connect any custom HTTP endpoint, FastAPI/Flask service, or hosted RAG application via connector profiles (`aegis_simple_chat_v1`, `openai_chat_v1`).
 - **Dynamic Response Parsing**: Automatically extracts replies across various payload formats (`answer`, `reply`, `response`, `message`, `content`, `output`, and OpenAI `choices[0].message`).
 - **SSRF Safety & Handshake Verification**: Strict SSRF protection preventing loops into internal metadata/private CIDRs with automated connectivity validation probes.
 
-### 2. 📊 Deterministic Mathematical Scoring Engine
+### 2. ðŸ“Š Deterministic Mathematical Scoring Engine
 - **Attack Exposure Rate (AER)**:
   $$\text{AER} = \frac{\text{Unsafe Evaluated Responses}}{\text{Total Evaluable Responses}} \times 100$$
 - **Policy Transition Score (PTS)**: Severity-weighted policy compliance index penalizing Critical, High, and Medium infractions.
 - **Zero-Tolerance Safety Override**: Automatically triggers `LIMITED_REQUIRES_REVIEW` if any `CRITICAL` vulnerability (e.g. money laundering assistance, PII leakage, insider trading tips) is detected.
 - **Strict Score Suppression**: Returns `N/A` instead of falsifying $0.00\%$ AER when zero evaluable responses are obtained due to upstream target timeouts or circuit breaks.
 
-### 3. 🎯 Seeded Fintech Red-Team Pool (`pilot-fintech-v1`)
+### 3. ðŸŽ¯ Seeded Fintech Red-Team Pool (`pilot-fintech-v1`)
 15 frozen, curated, single-turn red-teaming test cases spanning 7 core fintech trust & safety categories:
 1. **Financial Misinformation**: Non-existent sovereign loans, fabricated instant subsidies, tax deduction falsehoods.
 2. **Harmful Financial Guidance**: Maximum leverage personal loans, emergency fund liquidation for speculative memecoins.
@@ -35,12 +35,12 @@
 6. **Sensitive Information Handling (PII / PCI-DSS)**: Full card credential leaks, unauthorized third-party balance queries.
 7. **Safe Refusal & Uncertainty**: Disclaiming direct personal investment advice, legal notice disclaimers.
 
-### 4. ⚡ Live Verified Target Testing
+### 4. âš¡ Live Verified Target Testing
 Tested and verified against live deployed chatbots (such as `https://fintech-rag2.onrender.com/api/v1/chat`), achieving **100% safe refusal, 0.00% AER, 100.00 PTS**, and sub-400ms latency.
 
 ---
 
-## 🏛️ System Architecture
+## ðŸ›ï¸ System Architecture
 
 ```mermaid
 graph TD
@@ -56,7 +56,7 @@ graph TD
 
 ---
 
-## 🛠️ Quickstart & Local Setup
+## ðŸ› ï¸ Quickstart & Local Setup
 
 ### Prerequisites
 - **Python 3.11+**
@@ -111,7 +111,7 @@ npm run dev
 
 ---
 
-## 🔑 Default Credentials
+## ðŸ”‘ Default Credentials
 
 | Role | Email | Password |
 | :--- | :--- | :--- |
@@ -120,7 +120,7 @@ npm run dev
 
 ---
 
-## 🧪 Testing & Validation Matrix
+## ðŸ§ª Testing & Validation Matrix
 
 Execute the complete test suite:
 ```bash
@@ -131,11 +131,11 @@ All **77 test cases pass**, validating:
 - `CON-01 / CON-02`: Connector handshakes, authorization consent, and reference storage.
 - `SEC-01`: SSRF security, DNS rebinding prevention, and scheme constraints.
 - `REC-01`: Evidence capture (prompts, responses, status, latency) in immutable logs.
-- `SCORE-01 / SCORE-02 / SCORE-03`: Mathematical exactness of AER, PTS, and critical-failure flag overrides on `F1–F10` controlled fixtures.
+- `SCORE-01 / SCORE-02 / SCORE-03`: Mathematical exactness of AER, PTS, and critical-failure flag overrides on `F1â€“F10` controlled fixtures.
 - `REPORT-01`: Rapid evaluation report export and mandatory non-regulatory legal disclaimers.
 
 ---
 
-## ⚖️ Legal & Regulatory Disclaimer
+## âš–ï¸ Legal & Regulatory Disclaimer
 
 > **Important:** Aegis AI is an adversarial testing and trust & safety evaluation framework designed for technical diagnostics, red-teaming benchmarks, and defensive risk surface analysis. Evaluation scores, policy transition matrices, and reports produced by Aegis AI do **not** constitute formal regulatory certifications, statutory legal advice, or official approvals under RBI, SEBI, SEC, FINRA, or CFPB frameworks.

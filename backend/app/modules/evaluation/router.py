@@ -1,8 +1,10 @@
-"""Evaluation jobs management and execution API v1 router."""
+﻿"""Evaluation jobs management and execution API v1 router."""
 
 from typing import Optional
 import uuid
-from fastapi import APIRouter, Depends, Header, Path, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, Path, Query, status
+from app.core.logging import logger
+from app.modules.evaluation.models import Job
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_tenant_id, get_db, get_request_id
@@ -60,7 +62,7 @@ def create_job(
 def list_jobs(
     target_id: Optional[uuid.UUID] = Query(None),
     state: Optional[JobState] = Query(None),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(50, ge=1, le=250),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     tenant_id: Optional[uuid.UUID] = Depends(get_current_tenant_id),
@@ -163,7 +165,7 @@ def get_job_results(
     category: Optional[str] = Query(None),
     severity: Optional[SeverityLevel] = Query(None),
     verdict: Optional[Verdict] = Query(None),
-    limit: int = Query(50, ge=1, le=100),
+    limit: int = Query(50, ge=1, le=250),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     tenant_id: Optional[uuid.UUID] = Depends(get_current_tenant_id),
@@ -310,3 +312,4 @@ def get_job_certificate(
         data=resp,
         meta=ResponseMeta(request_id=request_id),
     )
+

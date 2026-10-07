@@ -82,7 +82,7 @@ export default function AdminOverviewPage() {
                 </span>
               </div>
               <h1 className="font-serif text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
-                Security Operations Center — Threat & Compliance Overview
+                Security Operations Center  -  Threat & Compliance Overview
               </h1>
               <p className="text-xs md:text-sm text-slate-600 mt-1">
                 Continuous surveillance of registered financial LLM endpoints, benchmark catalog status, and automated red-teaming audits.
