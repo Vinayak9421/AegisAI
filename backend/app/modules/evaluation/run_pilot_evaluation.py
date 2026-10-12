@@ -133,6 +133,14 @@ def run_pilot():
         else:
             print(f"[4/6] Benchmark source '{source.name}' already present")
 
+        # Also ingest comprehensive benchmark suites (FinRed, HarmBench, AdvBench, Benign)
+        try:
+            from app.modules.benchmarks.seeder import seed_all_benchmarks
+            bench_results = seed_all_benchmarks(db)
+            print(f"[4b/6] Ingested benchmark catalog ({bench_results.get('total_ingested', 0)} new vectors, full suite active)")
+        except Exception as bench_err:
+            print(f"[4b/6] Full benchmark catalog ingestion note: {bench_err}")
+
         # 4. Generate Validation Sheet
         sheet_data = generate_validation_sheet()
         print(f"[5/6] Generated Scoring Engine Validation Sheet (100% Passed: {sheet_data['all_passed']})")

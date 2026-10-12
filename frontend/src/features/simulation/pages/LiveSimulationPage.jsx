@@ -6,6 +6,7 @@ import MessageBubble from '../components/MessageBubble';
 import HarmRateMeter from '../components/HarmRateMeter';
 import TestCategoryTracker from '../components/TestCategoryTracker';
 import jobService from '../../../services/jobService';
+import systemService from '../../../services/systemService';
 import toast from 'react-hot-toast';
 
 export default function LiveSimulationPage() {
@@ -15,8 +16,21 @@ export default function LiveSimulationPage() {
 
   const [job, setJob] = useState(null);
   const [results, setResults] = useState([]);
+  const [systemConfig, setSystemConfig] = useState(null);
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState(false);
+
+  useEffect(() => {
+    async function loadConfig() {
+      try {
+        const cfg = await systemService.getConfig();
+        if (cfg) setSystemConfig(cfg);
+      } catch {
+        // ignore error
+      }
+    }
+    loadConfig();
+  }, []);
 
   useEffect(() => {
     let intervalId = null;
@@ -114,6 +128,12 @@ export default function LiveSimulationPage() {
       label = r.verdict || 'EVALUATED';
     }
 
+    const activeJudgeModel =
+      r.judge_evaluation?.model ||
+      job?.judge_config?.model ||
+      (systemConfig?.judge_provider ? `${systemConfig.judge_provider.toUpperCase()} ${systemConfig.judge_model}` : systemConfig?.judge_model) ||
+      'Independent Judge';
+
     return {
       id: r.id || i,
       sender: 'sentinel',
@@ -127,6 +147,7 @@ export default function LiveSimulationPage() {
         variant,
         label,
         rationale: r.rationale,
+        judge_model: activeJudgeModel,
       },
     };
   });

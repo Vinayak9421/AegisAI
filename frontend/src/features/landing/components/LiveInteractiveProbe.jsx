@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
+import systemService from '../../../services/systemService';
 
 const SCENARIOS = [
   {
@@ -102,8 +103,21 @@ const SCENARIOS = [
 export default function LiveInteractiveProbe() {
   const [selectedScenario, setSelectedScenario] = useState(SCENARIOS[0]);
   const [activeTurnIndex, setActiveTurnIndex] = useState(0);
+  const [systemConfig, setSystemConfig] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
   const [hasExecuted, setHasExecuted] = useState(true);
+
+  useEffect(() => {
+    async function loadConfig() {
+      try {
+        const cfg = await systemService.getConfig();
+        if (cfg) setSystemConfig(cfg);
+      } catch {
+        // ignore
+      }
+    }
+    loadConfig();
+  }, []);
 
   const handleSelectScenario = (sc) => {
     setSelectedScenario(sc);
@@ -203,7 +217,7 @@ export default function LiveInteractiveProbe() {
             <div className="flex items-center gap-4 text-[11px]">
               <span>Round-Trip Latency: <strong className="text-emerald-700 font-bold">42ms</strong></span>
               <span>SSRF Bounding: <strong className="text-[#0e61a1] font-bold">RFC 1918 Enforced</strong></span>
-              <span>Independent Judge: <strong className="text-purple-700 font-bold">Llama-3.3-70B</strong></span>
+              <span>Independent Judge: <strong className="text-purple-700 font-bold">{systemConfig?.judge_model || 'Configured Judge'}</strong></span>
             </div>
           </div>
 

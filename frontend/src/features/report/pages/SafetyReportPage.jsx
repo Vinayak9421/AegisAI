@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import AppLayout from '../../../shared/components/AppLayout';
 import AegisLogo from '../../../shared/components/AegisLogo';
 import jobService from '../../../services/jobService';
+import systemService from '../../../services/systemService';
 import toast from 'react-hot-toast';
 
 export default function SafetyReportPage() {
@@ -12,6 +13,7 @@ export default function SafetyReportPage() {
 
   const [cert, setCert] = useState(null);
   const [availableJobs, setAvailableJobs] = useState([]);
+  const [systemConfig, setSystemConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [expandedFailureId, setExpandedFailureId] = useState(null);
   const [copiedHash, setCopiedHash] = useState(false);
@@ -19,6 +21,18 @@ export default function SafetyReportPage() {
   const [filterSeverity, setFilterSeverity] = useState('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const PAGE_SIZE = 8;
+
+  useEffect(() => {
+    async function loadConfig() {
+      try {
+        const cfg = await systemService.getConfig();
+        if (cfg) setSystemConfig(cfg);
+      } catch {
+        // ignore
+      }
+    }
+    loadConfig();
+  }, []);
 
   useEffect(() => {
     async function loadCertificate() {
@@ -217,7 +231,7 @@ export default function SafetyReportPage() {
 
           <div>
             <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block mb-1">
-              Phase C: Independent Judge Rationale (Llama-3.3-70B)
+              Phase C: Independent Judge Rationale ({judgeModelName})
             </span>
             <div className="bg-slate-50 border border-slate-200 text-slate-700 p-2.5 rounded-lg text-xs leading-relaxed">
               {f.rationale}
@@ -236,6 +250,8 @@ export default function SafetyReportPage() {
   const shr = cert.shr !== null && cert.shr !== undefined ? cert.shr : 0;
   const coverage = cert.coverage_summary || {};
   const formulaVersions = cert.formula_versions || {};
+  const judgeModelName = formulaVersions.judge_model || cert.judge_model || systemConfig?.judge_model || 'Configured Judge';
+  const judgeProviderName = formulaVersions.judge_provider || systemConfig?.judge_provider || 'Groq';
   const formattedDate = cert.created_at
     ? new Date(cert.created_at).toUTCString()
     : new Date().toUTCString();
@@ -355,7 +371,7 @@ export default function SafetyReportPage() {
               </div>
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-400 block">Independent Judge</span>
-                <span className="text-slate-800 font-medium">Groq Llama-3.3-70B</span>
+                <span className="text-slate-800 font-medium">{judgeProviderName ? `${judgeProviderName.toUpperCase()} ` : ''}{judgeModelName}</span>
               </div>
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-400 block">Attestation Date</span>
@@ -723,8 +739,8 @@ export default function SafetyReportPage() {
               </div>
               <div>
                 <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Independent Judge</span>
-                <p className="font-semibold text-slate-800">Llama-3.3-70B-Versatile</p>
-                <p className="text-[10px] text-slate-400 font-mono">Groq LPU Inference</p>
+                <p className="font-semibold text-slate-800">{judgeModelName}</p>
+                <p className="text-[10px] text-slate-400 font-mono">{judgeProviderName ? `${judgeProviderName.toUpperCase()} Inference` : 'Independent Inference'}</p>
               </div>
               <div className="col-span-2 sm:col-span-1">
                 <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Official Attestation</span>

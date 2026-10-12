@@ -7,11 +7,15 @@ import AppLayout from '../../../shared/components/AppLayout';
 import toast from 'react-hot-toast';
 import targetService from '../../../services/targetService';
 import jobService from '../../../services/jobService';
+import systemService from '../../../services/systemService';
 
 export default function ConnectChatbotPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const preselectedSuiteId = searchParams.get('suiteId');
+
+  // System & judge config from backend .env
+  const [systemConfig, setSystemConfig] = useState(null);
 
   // Benchmark suite selection states
   const [availableSources, setAvailableSources] = useState([]);
@@ -52,6 +56,21 @@ export default function ConnectChatbotPage() {
   const [createdTarget, setCreatedTarget] = useState(null);
   const [probeData, setProbeData] = useState(null);
   const [startingScan, setStartingScan] = useState(false);
+
+  // Load system and judge config on component mount
+  useEffect(() => {
+    async function loadSystemConfig() {
+      try {
+        const config = await systemService.getConfig();
+        if (config) {
+          setSystemConfig(config);
+        }
+      } catch (e) {
+        console.warn('Could not load system config:', e);
+      }
+    }
+    loadSystemConfig();
+  }, []);
 
   // Load benchmark sources on component mount
   useEffect(() => {
@@ -136,12 +155,13 @@ export default function ConnectChatbotPage() {
       setModelName('');
       toast.success('Configured Internal Banking Assistant profile');
     } else if (preset === 'localhost') {
-      setTargetName('Localhost vLLM Server');
-      setApiUrl('http://127.0.0.1:8080/v1/chat/completions');
+      setTargetName('Local Ollama (Llama 3.2)');
+      setApiUrl('http://127.0.0.1:11434/v1/chat/completions');
+      setApiKey('ollama');
       setAuthHeaderKind('BEARER_TOKEN');
       setConnectorProfile('openai_chat_v1');
-      setModelName('meta-llama/Llama-3.2-3B-Instruct');
-      toast.success('Configured Localhost Inference profile');
+      setModelName('llama3.2');
+      toast.success('Configured Local Ollama (Port 11434) profile');
     }
   };
 
@@ -366,14 +386,14 @@ export default function ConnectChatbotPage() {
               { id: 'gemini', name: 'Google Gemini', desc: 'gemini-3.8-flash' },
               { id: 'openai', name: 'OpenAI Chat Gateway', desc: 'gpt-4o-mini / vLLM' },
               { id: 'demo', name: 'FinSight Banking Bot', desc: 'Internal Port 8001' },
-              { id: 'localhost', name: 'Localhost vLLM', desc: 'Port 8080 Endpoint' },
+              { id: 'localhost', name: 'Local Ollama / vLLM', desc: 'Port 11434 Endpoint' },
             ].map((p) => {
               const active =
                 (p.id === 'huggingface' && apiUrl.includes('huggingface')) ||
                 (p.id === 'gemini' && apiUrl.includes('generativelanguage')) ||
                 (p.id === 'openai' && apiUrl.includes('api.openai.com')) ||
                 (p.id === 'demo' && apiUrl.includes('8001')) ||
-                (p.id === 'localhost' && apiUrl.includes('8080'));
+                (p.id === 'localhost' && (apiUrl.includes('11434') || apiUrl.includes('8080')));
 
               return (
                 <button
@@ -759,7 +779,7 @@ export default function ConnectChatbotPage() {
               Target Execution Profile Ready
             </p>
             <p className="text-[11px] text-slate-500">
-              Seed: 42 (Deterministic) | Independent Judge: Groq Llama-3.3-70B | Anti-Injection Fenced
+              Seed: 42 (Deterministic) | Independent Judge: {systemConfig?.judge_provider ? `${systemConfig.judge_provider.toUpperCase()} ` : ''}{systemConfig?.judge_model || 'Configured Judge'} | Anti-Injection Fenced
             </p>
           </div>
           <button

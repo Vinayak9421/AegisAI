@@ -70,6 +70,8 @@ class CertificateBuilder(CertificateBuilderPort):
                 "grounding_weight": 0.15,
                 "session_weight": 0.10,
                 "provenance_weight": 0.10,
+                "judge_model": (job.judge_config.get("model") if job and job.judge_config else None) or settings.JUDGE_MODEL,
+                "judge_provider": (job.judge_config.get("provider") if job and job.judge_config else None) or settings.JUDGE_PROVIDER,
                 "report_hash": breakdown.report_hash,
             },
             "report_hash": breakdown.report_hash,
