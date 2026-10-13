@@ -15,3 +15,11 @@ class HealthReadyResponse(BaseModel):
     status: str
     database: str
     environment: AppEnvironment
+
+
+class SystemConfigResponse(BaseModel):
+    judge_provider: str
+    judge_model: str
+    environment: AppEnvironment
+    version: str = "0.1.0"
+    database_type: str

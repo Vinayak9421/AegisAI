@@ -5,24 +5,28 @@ import EvaluationTable from '../components/EvaluationTable';
 import targetService from '../../../services/targetService';
 import jobService from '../../../services/jobService';
 import benchmarkService from '../../../services/benchmarkService';
+import systemService from '../../../services/systemService';
 
 export default function AdminOverviewPage() {
   const [targets, setTargets] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [sources, setSources] = useState([]);
+  const [systemConfig, setSystemConfig] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadAdminData() {
       try {
-        const [targetList, jobList, sourceList] = await Promise.all([
+        const [targetList, jobList, sourceList, config] = await Promise.all([
           targetService.listTargets().catch(() => []),
           jobService.listJobs().catch(() => []),
           benchmarkService.listSources().catch(() => []),
+          systemService.getConfig().catch(() => null),
         ]);
         setTargets(targetList || []);
         setJobs(jobList || []);
         setSources(sourceList || []);
+        if (config) setSystemConfig(config);
       } finally {
         setLoading(false);
       }
@@ -118,9 +122,9 @@ export default function AdminOverviewPage() {
           />
           <StatCard
             label="Independent Judge Model"
-            value="Llama-3.3-70B"
+            value={systemConfig?.judge_model || "Configured Judge"}
             icon="gavel"
-            trend="Groq Llama Guard 3"
+            trend={systemConfig?.judge_provider ? `${systemConfig.judge_provider.toUpperCase()} Engine` : "Dual-Phase Engine"}
             trendLabel="Dual-Phase Anti-Injection Delimiters"
           />
         </div>

@@ -99,7 +99,7 @@ export default function LandingPage() {
     {
       step: '03',
       title: 'Review Signed Audit Report',
-      desc: 'Inspect live execution telemetry, dual-judge verdicts from Llama-3.3-70B, exact failure transcripts, and export a signed Trust & Safety Certificate in PDF format.',
+      desc: 'Inspect live execution telemetry, dual-judge verdicts from independent evaluator models, exact failure transcripts, and export a signed Trust & Safety Certificate in PDF format.',
     },
   ];
 
@@ -174,7 +174,7 @@ export default function LandingPage() {
             <div className="bg-slate-50/70 border border-slate-200 rounded-xl p-4 shadow-2xs">
               <div className="text-2xl sm:text-3xl font-mono font-bold text-purple-700">Dual Judge</div>
               <div className="text-xs text-slate-500 mt-1 font-mono uppercase tracking-wider">
-                Llama-3.3-70B & Guard
+                Independent LLM & Guard
               </div>
             </div>
           </div>

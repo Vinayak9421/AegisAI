@@ -5,11 +5,33 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import get_db, get_request_id
 from app.core.config import settings
-from app.db.session import check_db_connection
-from app.modules.system.schemas import HealthLiveResponse, HealthReadyResponse
+from app.db.session import check_db_connection, engine
+from app.modules.system.schemas import HealthLiveResponse, HealthReadyResponse, SystemConfigResponse
 from app.schemas.common import ApiResponse, ResponseMeta
 
 router = APIRouter(tags=["Health"])
+
+
+@router.get(
+    "/system/config",
+    response_model=ApiResponse[SystemConfigResponse],
+    summary="System Runtime & Judge Configuration",
+)
+def get_system_config(
+    request_id: str = Depends(get_request_id),
+) -> ApiResponse[SystemConfigResponse]:
+    """Return non-sensitive runtime system configuration including active judge model from .env."""
+    db_type = "sqlite" if str(engine.url).startswith("sqlite") else "postgresql"
+    return ApiResponse(
+        data=SystemConfigResponse(
+            judge_provider=settings.JUDGE_PROVIDER,
+            judge_model=settings.JUDGE_MODEL,
+            environment=settings.APP_ENV,
+            version="0.1.0",
+            database_type=db_type,
+        ),
+        meta=ResponseMeta(request_id=request_id),
+    )
 
 
 @router.get(

@@ -120,7 +120,7 @@ export default function MessageBubble({ message, index }) {
           <div className="flex items-center justify-between text-[11px] font-bold text-[#0e61a1] uppercase tracking-wider">
             <span className="flex items-center gap-1">
               <span className="material-symbols-outlined text-xs">gavel</span>
-              Independent Judge Audit (Groq Llama-3.3-70B)
+              Independent Judge Audit ({response?.judge_model || 'Configured Judge'})
             </span>
             <span className="font-mono text-[10px] text-sky-700 font-normal">Dual-Phase Gate</span>
           </div>
