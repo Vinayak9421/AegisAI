@@ -7,6 +7,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.certificates.base import CertificateBuilderPort
 from app.db.models.certificate import Certificate
 from app.domain.enums import CertificateStatus
