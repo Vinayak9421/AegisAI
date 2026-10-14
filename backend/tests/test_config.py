@@ -34,3 +34,23 @@ def test_production_readiness_rejects_insecure_defaults():
     )
     with pytest.raises(ValueError, match="AUTH_SECRET"):
         settings.validate_production_readiness()
+
+
+def test_settings_get_all_groq_keys():
+    # 1. Single JUDGE_API_KEY
+    s1 = Settings(
+        _env_file=None,
+        AUTH_SECRET="test_secret_key_for_unit_tests_12345",
+        JUDGE_API_KEY="gsk_key1",
+    )
+    assert s1.get_all_groq_keys() == ["gsk_key1"]
+
+    # 2. Multi-key comma-separated list
+    s2 = Settings(
+        _env_file=None,
+        AUTH_SECRET="test_secret_key_for_unit_tests_12345",
+        GROQ_API_KEYS="gsk_key1, gsk_key2, gsk_key3",
+        JUDGE_API_KEY="gsk_key1",  # duplicate should be stripped
+    )
+    assert s2.get_all_groq_keys() == ["gsk_key1", "gsk_key2", "gsk_key3"]
+

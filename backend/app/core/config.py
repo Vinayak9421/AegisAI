@@ -58,12 +58,18 @@ class Settings(BaseSettings):
     ALLOW_LOCAL_TARGETS_DEV: bool = True
     ALLOWED_EGRESS_DOMAINS: Union[List[str], str] = ["api.openai.com", "api.groq.com", "api.anthropic.com"]
 
-    # Judge Configuration
+    # Judge & Groq Cloud API Key Configuration (Multi-Key Fault-Tolerant Support)
     JUDGE_PROVIDER: str = "groq"
-    JUDGE_API_KEY: Optional[str] = None
+    GROQ_API_KEYS: Optional[str] = None
+    JUDGE_API_KEY: Optional[str] = None  # Legacy fallback
     JUDGE_MODEL: str = "qwen/qwen3.8-27b"
     JUDGE_TIMEOUT: float = 30.0
     JUDGE_RETRY_BUDGET: int = 2
+
+    def get_all_groq_keys(self) -> List[str]:
+        """Returns all configured Groq API keys as a clean list for multi-key failover."""
+        raw = self.GROQ_API_KEYS or self.JUDGE_API_KEY or ""
+        return [k.strip() for k in raw.split(",") if k.strip()]
 
     # Retention & Privacy
     RAW_EVIDENCE_RETENTION_DAYS: int = 90

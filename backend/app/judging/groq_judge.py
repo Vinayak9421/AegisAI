@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 import json
 import re
 import unicodedata
@@ -53,10 +53,30 @@ class GroqJudgeAdapter(JudgePort):
         model: Optional[str] = None,
         timeout: Optional[float] = None,
     ):
-        self.api_key = api_key or settings.JUDGE_API_KEY
+        if api_key:
+            self.keys = [api_key]
+        else:
+            self.keys = settings.get_all_groq_keys()
+        self._current_key_idx = 0
+        self.api_key = self._get_active_key()
         self.model = model or settings.JUDGE_MODEL
         self.timeout = timeout or settings.JUDGE_TIMEOUT
         self.api_url = "https://api.groq.com/openai/v1/chat/completions"
+
+    def _get_active_key(self) -> Optional[str]:
+        if not self.keys:
+            return None
+        return self.keys[self._current_key_idx % len(self.keys)]
+
+    def _rotate_key(self) -> Optional[str]:
+        if not self.keys or len(self.keys) <= 1:
+            return self._get_active_key()
+        self._current_key_idx = (self._current_key_idx + 1) % len(self.keys)
+        new_key = self.keys[self._current_key_idx]
+        masked = new_key[:8] + "..." + new_key[-4:] if len(new_key) > 12 else "key"
+        logger.warning(f"GroqJudgeAdapter rotated to backup Groq key: {masked}")
+        self.api_key = new_key
+        return new_key
 
     def _sanitize_evidence(self, text: Optional[str], max_chars: int = 16000) -> str:
         """Normalize unicode and truncate long untrusted evidence."""
@@ -69,17 +89,18 @@ class GroqJudgeAdapter(JudgePort):
 
     async def evaluate(self, input_data: JudgeInput) -> JudgeOutput:
         """Evaluate an adversarial interaction and return a structured verdict."""
+        active_key = self._get_active_key()
         # 1. If no live API key is configured or placeholder key is used, use rule-based fallback
         if (
-            not self.api_key
-            or self.api_key.startswith("mock_")
-            or "test" in self.api_key.lower()
-            or "your_" in self.api_key.lower()
-            or "here" in self.api_key.lower()
+            not active_key
+            or active_key.startswith("mock_")
+            or "test" in active_key.lower()
+            or "your_" in active_key.lower()
+            or "here" in active_key.lower()
         ):
             return self._heuristic_fallback_evaluate(input_data)
 
-        # 2. Live Groq API call with Llama-3.3-70B
+        # 2. Live Groq API call
         sanitized_response = self._sanitize_evidence(input_data.target_response)
         sanitized_prompt = self._sanitize_evidence(input_data.test_case_prompt, max_chars=12000)
 
@@ -90,11 +111,6 @@ class GroqJudgeAdapter(JudgePort):
             owasp_id=input_data.trace_stage.get("owasp_id", "") if input_data.trace_stage else "",
         )
 
-        headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-            "User-Agent": "AegisAI-Sentinel-Judge/1.0",
-        }
         payload = {
             "model": self.model,
             "messages": [
@@ -106,27 +122,42 @@ class GroqJudgeAdapter(JudgePort):
             "max_tokens": 512,
         }
 
-        max_retries = 3
-        backoff_delays = [2.0, 4.0, 8.0]
+        max_retries = max(3, len(self.keys) * 2)
+        backoff_delays = [1.5, 3.0, 6.0, 10.0]
 
         for attempt in range(max_retries + 1):
+            curr_key = self._get_active_key()
+            headers = {
+                "Authorization": f"Bearer {curr_key}",
+                "Content-Type": "application/json",
+                "User-Agent": "AegisAI-Sentinel-Judge/1.0",
+            }
             try:
                 async with httpx.AsyncClient(timeout=self.timeout) as client:
                     resp = await client.post(self.api_url, json=payload, headers=headers)
                     if resp.status_code == 200:
                         raw_content = resp.json()["choices"][0]["message"]["content"]
                         return self._parse_and_validate_verdict(raw_content, input_data)
-                    elif resp.status_code == 429 or resp.status_code in (502, 503, 504):
+                    elif resp.status_code in (429, 401, 403, 502, 503, 504):
                         if attempt < max_retries:
-                            resp_headers = getattr(resp, "headers", None)
-                            retry_after = resp_headers.get("retry-after") if resp_headers and hasattr(resp_headers, "get") else None
-                            wait_time = float(retry_after) if retry_after and retry_after.isdigit() else backoff_delays[attempt]
-                            logger.warning(
-                                f"Groq API returned HTTP {resp.status_code} (attempt {attempt + 1}/{max_retries + 1}). "
-                                f"Backing off for {wait_time}s before retry..."
-                            )
-                            await asyncio.sleep(wait_time)
-                            continue
+                            if len(self.keys) > 1:
+                                self._rotate_key()
+                                logger.warning(
+                                    f"Groq API returned HTTP {resp.status_code}. "
+                                    f"Rotated to next key (attempt {attempt + 1}/{max_retries + 1})."
+                                )
+                                await asyncio.sleep(0.5)
+                                continue
+                            else:
+                                resp_headers = getattr(resp, "headers", None)
+                                retry_after = resp_headers.get("retry-after") if resp_headers and hasattr(resp_headers, "get") else None
+                                wait_time = float(retry_after) if retry_after and retry_after.isdigit() else backoff_delays[min(attempt, len(backoff_delays) - 1)]
+                                logger.warning(
+                                    f"Groq API returned HTTP {resp.status_code} (attempt {attempt + 1}/{max_retries + 1}). "
+                                    f"Backing off for {wait_time}s before retry..."
+                                )
+                                await asyncio.sleep(wait_time)
+                                continue
                         else:
                             logger.warning(
                                 f"Groq API rate limit/transient error persisted after {max_retries} retries (HTTP {resp.status_code}). "
@@ -138,7 +169,9 @@ class GroqJudgeAdapter(JudgePort):
                         return self._heuristic_fallback_evaluate(input_data)
             except (httpx.TimeoutException, httpx.RequestError) as e:
                 if attempt < max_retries:
-                    wait_time = backoff_delays[attempt]
+                    if len(self.keys) > 1:
+                        self._rotate_key()
+                    wait_time = backoff_delays[min(attempt, len(backoff_delays) - 1)]
                     logger.warning(
                         f"Groq API network/timeout error {type(e).__name__} (attempt {attempt + 1}/{max_retries + 1}). "
                         f"Retrying in {wait_time}s..."
