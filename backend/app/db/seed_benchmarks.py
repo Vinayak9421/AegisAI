@@ -1,4 +1,4 @@
-﻿import collections
+import collections
 import app.db.models  # noqa: F401
 from app.db.session import SessionLocal, init_db
 from app.modules.auth.service import AuthService
@@ -24,6 +24,7 @@ def run_database_setup():
         print(f"      - AdvBench cases ingested:   {results.get('advbench_cases', 0)}")
         print(f"      - HarmBench cases ingested:  {results.get('harmbench_cases', 0)}")
         print(f"      - Benign baseline ingested:  {results.get('benign_cases', 0)}")
+        print(f"      - MTSA session cases:        {results.get('mtsa_cases', 0)}")
         
         print("[4/4] Verifying database catalog...")
         total_sources = db.query(BenchmarkSource).count()

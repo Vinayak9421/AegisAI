@@ -28,6 +28,7 @@ export default function ConnectChatbotPage() {
     'AdvBench Harmful Behaviors',
     'HarmBench Standard Behaviors',
     'Benign Financial & General Baseline',
+    'MTSA Multi-Turn Adversarial Benchmark',
   ];
 
   const standardSources = availableSources.filter((s) => {
@@ -330,7 +331,6 @@ export default function ConnectChatbotPage() {
         mode: evaluationMode,
         sample_size: evaluationMode === 'QUICK' ? 25 : 150,
         source_ids: sourceIdsPayload,
-        seed: 42,
       });
 
       toast.success('Evaluation job queued successfully');

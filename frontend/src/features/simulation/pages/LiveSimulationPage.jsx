@@ -19,6 +19,7 @@ export default function LiveSimulationPage() {
   const [systemConfig, setSystemConfig] = useState(null);
   const [loading, setLoading] = useState(false);
   const [running, setRunning] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
   useEffect(() => {
     async function loadConfig() {
@@ -98,6 +99,40 @@ export default function LiveSimulationPage() {
       toast.error(err.message || 'Execution runner failed');
       setRunning(false);
     }
+  };
+
+  const handleStopJob = async () => {
+    if (!job) return;
+    setCancelling(true);
+    toast('Halting test runner and finalizing certificate...', { icon: '🛑' });
+    try {
+      await jobService.cancelJob(job.id);
+      if (results.length > 0) {
+        try {
+          await jobService.generateCertificate(job.id);
+        } catch {
+          // ignore error if background runner is finalizing
+        }
+      }
+      const updated = await jobService.getJob(job.id);
+      if (updated) setJob(updated);
+      setRunning(false);
+      toast.success(`Testing halted cleanly. Evaluated ${results.length} test vectors.`);
+    } catch (err) {
+      toast.error(err.message || 'Failed to stop testing');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const handleViewCertificate = async () => {
+    if (!job) return;
+    try {
+      await jobService.generateCertificate(job.id);
+    } catch {
+      // ignore error
+    }
+    navigate(`/report/${job.id}`);
   };
 
   const safeCount = results.filter((r) => r.verdict === 'SAFE').length;
@@ -269,26 +304,51 @@ export default function LiveSimulationPage() {
               </div>
 
               <div className="flex items-center gap-2.5">
-                {job?.state === 'COMPLETED' && (
+                {/* Stop Testing button: visible whenever testing is in-flight */}
+                {running && (
                   <button
-                    onClick={() => navigate(`/report/${job.id}`)}
-                    className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all"
+                    onClick={handleStopJob}
+                    disabled={cancelling}
+                    className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+                    title="Stop evaluation and generate certificate for completed tests"
                   >
-                    <span className="material-symbols-outlined text-sm">verified</span>
-                    View Final Certificate
+                    <span className="material-symbols-outlined text-sm">stop_circle</span>
+                    {cancelling ? 'Stopping...' : 'Stop Testing'}
                   </button>
                 )}
 
-                {job && job.state !== 'COMPLETED' && (
+                {/* View / Generate Certificate: visible whenever tests have been completed */}
+                {results.length > 0 && (
+                  <button
+                    onClick={handleViewCertificate}
+                    className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+                    title="Generate and view Trust & Safety Certificate based on completed tests"
+                  >
+                    <span className="material-symbols-outlined text-sm">verified</span>
+                    {job?.state === 'COMPLETED' ? 'View Final Certificate' : `Certificate (${results.length} Tests)`}
+                  </button>
+                )}
+
+                {/* Dispatch Prompts button: visible when not running and not yet completed */}
+                {job && !running && job.state !== 'COMPLETED' && job.state !== 'CANCELLED' && (
                   <button
                     onClick={handleRunJob}
-                    disabled={running}
-                    className="px-3 py-1.5 bg-[#0e61a1] hover:bg-[#0b4e82] disabled:opacity-50 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all"
+                    className="px-3 py-1.5 bg-[#0e61a1] hover:bg-[#0b4e82] text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
                   >
-                    <span className={`material-symbols-outlined text-sm ${running ? 'animate-spin' : ''}`}>
-                      {running ? 'sync' : 'play_arrow'}
-                    </span>
-                    {running ? 'Testing Active...' : 'Dispatch Prompts'}
+                    <span className="material-symbols-outlined text-sm">play_arrow</span>
+                    Dispatch Prompts
+                  </button>
+                )}
+
+                {/* Resume button: if stopped early and queued tests remain */}
+                {job && !running && job.state === 'CANCELLED' && (job.completed_items + job.failed_items < job.total_items) && (
+                  <button
+                    onClick={handleRunJob}
+                    className="px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer"
+                    title="Resume remaining queued test vectors"
+                  >
+                    <span className="material-symbols-outlined text-sm">play_arrow</span>
+                    Resume Tests
                   </button>
                 )}
 
@@ -350,8 +410,8 @@ export default function LiveSimulationPage() {
                     </div>
                   </div>
                   <button
-                    onClick={() => navigate(`/report/${job.id}`)}
-                    className="px-4 py-2 bg-[#0e61a1] hover:bg-[#0b4e82] text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-2xs transition-all whitespace-nowrap"
+                    onClick={handleViewCertificate}
+                    className="px-4 py-2 bg-[#0e61a1] hover:bg-[#0b4e82] text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-2xs transition-all whitespace-nowrap cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-base">assessment</span>
                     Open Full Audit Certificate
@@ -359,10 +419,62 @@ export default function LiveSimulationPage() {
                 </div>
               )}
 
+              {/* Stopped Early Banner */}
+              {job?.state === 'CANCELLED' && results.length > 0 && (
+                <div className="p-4 bg-white border border-amber-300 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4 shadow-2xs">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined text-2xl text-amber-600">pause_circle</span>
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                        Testing Stopped by User
+                        <span className="px-1.5 py-0.2 bg-amber-100 text-amber-800 text-[10px] font-mono rounded">
+                          Partial Audit ({results.length}/{job?.total_items || 25} Evaluated)
+                        </span>
+                      </h4>
+                      <p className="text-[11px] text-slate-600 mt-0.5">
+                        {results.length} test vectors completed evaluation. You can generate an official Trust & Safety Certificate based on the completed tests.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {job && results.length < (job.total_items || 25) && (
+                      <button
+                        onClick={handleRunJob}
+                        className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-2xs transition-all whitespace-nowrap cursor-pointer"
+                        title="Resume dispatching remaining test cases"
+                      >
+                        <span className="material-symbols-outlined text-base">play_arrow</span>
+                        Resume Remaining Tests
+                      </button>
+                    )}
+                    <button
+                      onClick={handleViewCertificate}
+                      className="px-3.5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-2xs transition-all whitespace-nowrap cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-base">verified</span>
+                      Generate Certificate ({results.length} Tests)
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* In-Flight Testing Banner with Live Stop Action */}
               {running && (
-                <div className="flex items-center gap-2.5 p-3 bg-sky-50 border border-sky-200 rounded-lg text-xs text-sky-900 font-mono">
-                  <span className="material-symbols-outlined animate-spin text-sm text-[#0e61a1]">sync</span>
-                  <span>Dispatching attack payload to model & awaiting dual-phase judge evaluation...</span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-sky-50 border border-sky-200 rounded-lg text-xs text-sky-900 font-mono">
+                  <div className="flex items-center gap-2.5">
+                    <span className="material-symbols-outlined animate-spin text-sm text-[#0e61a1]">sync</span>
+                    <span>Dispatching test vectors & awaiting independent judge... ({results.length}/{job?.total_items || 25} done)</span>
+                  </div>
+                  <button
+                    onClick={handleStopJob}
+                    disabled={cancelling}
+                    className="px-3 py-1 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold rounded flex items-center gap-1 shadow-2xs transition-all cursor-pointer whitespace-nowrap shrink-0 self-end sm:self-auto"
+                  >
+                    <span className="material-symbols-outlined text-sm">stop_circle</span>
+                    {cancelling ? 'Stopping...' : results.length > 0 ? `Stop & Generate Certificate (${results.length})` : 'Stop Testing'}
+                  </button>
                 </div>
               )}
             </div>

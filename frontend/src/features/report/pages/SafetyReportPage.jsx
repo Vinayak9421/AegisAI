@@ -247,7 +247,7 @@ export default function SafetyReportPage() {
   const reportHash = cert.report_hash || 'SHA-256 Verified Digest';
   const aer = cert.aer !== null && cert.aer !== undefined ? cert.aer : 0;
   const identityScore = cert.identity_score !== null && cert.identity_score !== undefined ? cert.identity_score : 70;
-  const shr = cert.shr !== null && cert.shr !== undefined ? cert.shr : 0;
+  const shr = cert.shr !== null && cert.shr !== undefined ? cert.shr : null;
   const coverage = cert.coverage_summary || {};
   const formulaVersions = cert.formula_versions || {};
   const judgeModelName = formulaVersions.judge_model || cert.judge_model || systemConfig?.judge_model || 'Configured Judge';
@@ -437,11 +437,13 @@ export default function SafetyReportPage() {
               </div>
               <div className="flex items-baseline gap-1.5">
                 <span className="text-3xl font-bold font-sans tabular-nums text-slate-900">
-                  {shr}%
+                  {shr !== null ? `${shr}%` : 'N/A'}
                 </span>
                 <span className="text-xs text-slate-400 font-medium">SHR</span>
               </div>
-              <p className="text-[11px] text-slate-500 mt-1">Context manipulation & cross-turn drift</p>
+              <p className="text-[11px] text-slate-500 mt-1">
+                {shr !== null ? 'Context manipulation & cross-turn drift' : 'No multi-turn sessions evaluated'}
+              </p>
             </div>
           </div>
 
@@ -459,7 +461,8 @@ export default function SafetyReportPage() {
                 Multi-Dimensional Risk Matrix (6 Financial Threat Pillars)
               </h2>
               <span className="text-xs text-slate-500 font-mono">
-                Coverage: {coverage.total_evaluations || 0} Test Vectors Executed
+                Coverage: {coverage.total_evaluations || 0} Test Vectors Evaluated
+                {coverage.total_inconclusive > 0 && ` (${coverage.total_inconclusive} Connection Errors)`}
               </span>
             </div>
 
@@ -470,14 +473,20 @@ export default function SafetyReportPage() {
                 </div>
               ) : (
                 Object.entries(pillars).map(([key, p]) => {
-                  const isPass = p.score >= 85;
-                  const isWarn = p.score >= 70 && p.score < 85;
-                  const statusBg = isPass
+                  const isNotEvaluated = p.status === 'NOT_EVALUATED' || p.score === null || p.score === undefined || p.total_count === 0;
+                  const isPass = !isNotEvaluated && p.score >= 85;
+                  const isWarn = !isNotEvaluated && p.score >= 70 && p.score < 85;
+                  const statusBg = isNotEvaluated
+                    ? 'bg-slate-100 text-slate-600 border-slate-200'
+                    : isPass
                     ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                     : isWarn
                     ? 'bg-amber-50 text-amber-800 border-amber-200'
                     : 'bg-rose-50 text-rose-800 border-rose-200';
-                  const barColor = isPass ? 'bg-emerald-600' : (isWarn ? 'bg-amber-500' : 'bg-rose-600');
+                  const barColor = isNotEvaluated ? 'bg-slate-300' : (isPass ? 'bg-emerald-600' : (isWarn ? 'bg-amber-500' : 'bg-rose-600'));
+                  const statusLabel = isNotEvaluated ? 'NOT TESTED' : (p.status || (isPass ? 'PASS' : (isWarn ? 'WARN' : 'FAIL')));
+                  const scoreDisplay = isNotEvaluated ? 'N/A' : `${p.score}%`;
+                  const barWidth = isNotEvaluated ? 0 : Math.min(100, Math.max(0, p.score));
 
                   return (
                     <div
@@ -501,17 +510,17 @@ export default function SafetyReportPage() {
                       <div className="space-y-2 pt-2 border-t border-slate-100">
                         <div className="flex items-center justify-between">
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${statusBg}`}>
-                            {p.status || (isPass ? 'PASS' : (isWarn ? 'WARN' : 'FAIL'))}
+                            {statusLabel}
                           </span>
                           <span className="text-base font-bold font-sans tabular-nums text-slate-900">
-                            {p.score}%
+                            {scoreDisplay}
                           </span>
                         </div>
 
                         <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
                           <div
                             className={`h-1.5 rounded-full ${barColor}`}
-                            style={{ width: `${Math.min(100, Math.max(0, p.score))}%` }}
+                            style={{ width: `${barWidth}%` }}
                           />
                         </div>
 

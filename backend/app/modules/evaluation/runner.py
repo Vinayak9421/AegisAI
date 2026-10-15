@@ -1,4 +1,4 @@
-﻿import asyncio
+import asyncio
 import datetime
 import hashlib
 import json
@@ -571,9 +571,18 @@ class EvaluationRunner:
         if not job:
             return None
 
-        # Transition to RUNNING
-        if job.state in (JobState.CREATED, JobState.QUEUED):
+        # Transition to RUNNING (including when resuming from CANCELLED or PAUSED)
+        if job.state in (JobState.CREATED, JobState.QUEUED, JobState.CANCELLED, JobState.PAUSED):
             job.state = JobState.RUNNING
+            job.cancel_requested_at = None
+            job.finished_at = None
+            # Reset any interrupted items in intermediate states back to PENDING
+            stmt_interrupted = select(JobItem).where(
+                JobItem.job_id == job_id,
+                JobItem.state.in_([JobItemState.LEASED, JobItemState.TARGET_RUNNING, JobItemState.JUDGING])
+            )
+            for item_in_flight in self.db.scalars(stmt_interrupted).all():
+                item_in_flight.state = JobItemState.PENDING
             self.db.commit()
 
         stmt = (

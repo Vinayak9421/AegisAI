@@ -1,7 +1,8 @@
-﻿"""Job service implementing evaluation run creation, state transitions, and results retrieval."""
+"""Job service implementing evaluation run creation, state transitions, and results retrieval."""
 
 import datetime
 import hashlib
+import random
 from typing import Any, Dict, List, Optional
 import uuid
 from sqlalchemy import func, select
@@ -128,12 +129,13 @@ class JobService(BaseService):
                     return self._format_job_response(existing_job)
 
         # 4. Sample test cases from catalog via BenchmarkService
-        seed = request.sampling_seed if request.sampling_seed is not None else 42
+        seed = request.sampling_seed if request.sampling_seed is not None else random.randint(1, 1_000_000)
         sampled = self.benchmark_service.select_test_cases(
             mode=request.mode,
             categories=request.category_filters if request.category_filters else None,
             source_ids=request.source_ids if request.source_ids else None,
             seed=seed,
+            sample_size=request.sample_size,
         )
 
         if sampled.total_sampled == 0:

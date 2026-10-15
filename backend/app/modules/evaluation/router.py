@@ -1,4 +1,4 @@
-﻿"""Evaluation jobs management and execution API v1 router."""
+"""Evaluation jobs management and execution API v1 router."""
 
 from typing import Optional
 import uuid
@@ -210,7 +210,7 @@ def generate_certificate(
     job = service.get_job(tenant_id=resolved_tenant_id, job_id=job_id)
 
     builder = CertificateBuilder(db)
-    cert = builder.generate_and_persist(job_id)
+    cert = builder.generate_and_persist(job_id, force_recalculate=True)
     
     # Extract trust grade
     grade = "Grade A" if cert.trust_score and cert.trust_score >= 90 else (

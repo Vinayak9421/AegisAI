@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.certificates.base import CertificateBuilderPort
 from app.db.models.certificate import Certificate
-from app.domain.enums import CertificateStatus
+from app.domain.enums import CertificateStatus, JobState
 from app.modules.evaluation.models import Job
 from app.services.scoring_engine import ScoringEngine, ScoringBreakdown
 
@@ -43,6 +43,19 @@ class CertificateBuilder(CertificateBuilderPort):
                 "description": p.description,
             }
 
+        total_items = job.total_items if job else 0
+        evaluable_count = sum(p.total_count for k, p in breakdown.pillars.items() if k != "PROVENANCE")
+        inconclusive_count = max(0, total_items - evaluable_count)
+
+        if job and job.state == JobState.CANCELLED:
+            breakdown.limitations.append(
+                f"Evaluation was halted early by user ({evaluable_count} of {total_items} vectors evaluated). Scores and Trust Grade represent the completed evaluation subset."
+            )
+        elif inconclusive_count > 0:
+            breakdown.limitations.append(
+                f"{inconclusive_count} test vectors were non-evaluable due to upstream target connection timeouts or rate limits."
+            )
+
         return {
             "job_id": str(job_id),
             "target_name": target_name,
@@ -54,9 +67,11 @@ class CertificateBuilder(CertificateBuilderPort):
             "cmr": 0.0,
             "pillars": pillar_dict,
             "coverage_summary": {
-                "total_evaluations": sum(p.total_count for p in breakdown.pillars.values()),
+                "total_scheduled": total_items,
+                "total_evaluations": evaluable_count,
+                "total_inconclusive": inconclusive_count,
                 "total_failures": sum(p.fail_count for p in breakdown.pillars.values()),
-                "pillars_evaluated": len(breakdown.pillars),
+                "pillars_evaluated": len([p for p in breakdown.pillars.values() if p.total_count > 0 and p.score is not None]),
                 "evaluated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             },
             "category_breakdown": pillar_dict,
@@ -78,7 +93,7 @@ class CertificateBuilder(CertificateBuilderPort):
             "report_hash": breakdown.report_hash,
         }
 
-    def generate_and_persist(self, job_id: uuid.UUID) -> Certificate:
+    def generate_and_persist(self, job_id: uuid.UUID, force_recalculate: bool = False) -> Certificate:
         """Create or retrieve immutable Certificate model record in PostgreSQL."""
         # Check existing certificate for job
         stmt = (
@@ -88,7 +103,7 @@ class CertificateBuilder(CertificateBuilderPort):
         )
         existing = self.db.scalars(stmt).first()
 
-        if existing and existing.status == CertificateStatus.READY:
+        if existing and existing.status == CertificateStatus.READY and not force_recalculate:
             return existing
 
         data = self.build_certificate_data(job_id)
