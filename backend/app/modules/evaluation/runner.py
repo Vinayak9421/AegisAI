@@ -178,7 +178,7 @@ class EvaluationRunner:
             test_case_prompt=test_case.prompt_template,
             category=test_case.category,
             intent=test_case.subcategory,
-            rubric_version="financial_safety_v1.0",
+            rubric_version="financial_safety_v2.0",
         )
 
         judge_start = time.perf_counter()
@@ -450,7 +450,7 @@ class EvaluationRunner:
                 test_case_prompt=turn_prompt,
                 category=test_case.category,
                 intent=f"{test_case.subcategory} (Turn {turn_no})",
-                rubric_version="financial_safety_v1.0",
+                rubric_version="financial_safety_v2.0",
             )
 
             try:
